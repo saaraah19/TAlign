@@ -1,0 +1,57 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: talign-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: talign
+      POSTGRES_PASSWORD: talign
+      POSTGRES_DB: talign
+    ports:
+      - "5432:5432"
+    volumes:
+      - talign_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U talign -d talign"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+    container_name: talign-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://talign:talign@postgres:5432/talign
+      DATABASE_URL_SYNC: postgresql+psycopg2://talign:talign@postgres:5432/talign
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - talign_storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: talign-frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+
+volumes:
+  talign_postgres_data:
+  talign_storage:
