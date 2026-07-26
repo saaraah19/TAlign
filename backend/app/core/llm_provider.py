@@ -18,11 +18,18 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import TypeVar
 
-from pydantic import BaseModel
+import structlog
+from langchain_core.exceptions import OutputParserException
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from langchain_google_genai import ChatGoogleGenerativeAI
+from pydantic import BaseModel, ValidationError
 
 from app.core.config import settings
+from app.core.exceptions import InvalidStructuredOutputError, LLMProviderError
 
 T = TypeVar("T", bound=BaseModel)
+
+logger = structlog.get_logger(__name__)
 
 
 @dataclass
@@ -97,23 +104,54 @@ class LLMProvider(ABC):
 
 class GeminiProvider(LLMProvider):
     """
-    Google Gemini implementation.
+    Google Gemini implementation, built on `langchain_google_genai`
+    (the only SDK this module is permitted to import — see module
+    docstring).
 
     Talign's default provider (see ADR in docs/00_slice0_foundation.md).
-    Both methods remain NotImplementedError stubs — this environment has
-    no network path to generativelanguage.googleapis.com, so a real
-    implementation here couldn't be verified and would be an untested
-    guess. The full Resume Intelligence pipeline (extraction, alignment
-    reasoning, scoring, persistence, retries, failure handling) is fully
-    implemented and tested against `FakeLLMProvider`
-    (tests/fakes.py) instead — see
-    docs/04_slice4_resume_intelligence.md section H for why that's a
-    deliberate, documented boundary rather than a gap.
+
+    Design note: a fresh `ChatGoogleGenerativeAI` client is constructed
+    per call rather than cached on `self`. Client construction is local
+    object setup (no network I/O), and building fresh means `model` and
+    `temperature` can vary per call — as the `LLMProvider` protocol
+    requires — without any shared mutable client state to reason about.
+
+    `complete_structured` uses LangChain's `with_structured_output`,
+    which drives Gemini's native function-calling/JSON-mode structured
+    output and validates the result against `response_schema` — this is
+    the "provider's native structured-output support" the base class
+    docstring asks for, not manual "prompt for JSON, parse" fallback.
     """
 
     def __init__(self, api_key: str | None, default_model: str) -> None:
         self._api_key = api_key
         self._default_model = default_model
+
+    def _client(self, *, model: str | None, temperature: float) -> ChatGoogleGenerativeAI:
+        if not self._api_key:
+            raise LLMProviderError(
+                "GOOGLE_API_KEY is not configured; GeminiProvider cannot make a call."
+            )
+        return ChatGoogleGenerativeAI(
+            model=model or self._default_model,
+            google_api_key=self._api_key,
+            temperature=temperature,
+        )
+
+    @staticmethod
+    def _to_langchain_messages(messages: list[LLMMessage]) -> list[BaseMessage]:
+        role_map: dict[str, type[BaseMessage]] = {
+            "system": SystemMessage,
+            "user": HumanMessage,
+            "assistant": AIMessage,
+        }
+        converted: list[BaseMessage] = []
+        for message in messages:
+            message_cls = role_map.get(message.role)
+            if message_cls is None:
+                raise LLMProviderError(f"Unsupported LLMMessage role for Gemini: {message.role!r}")
+            converted.append(message_cls(content=message.content))
+        return converted
 
     async def complete(
         self,
@@ -122,9 +160,18 @@ class GeminiProvider(LLMProvider):
         model: str | None = None,
         temperature: float = 0.2,
     ) -> LLMResponse:
-        raise NotImplementedError(
-            "GeminiProvider.complete has no verified implementation in this "
-            "environment — see class docstring."
+        client = self._client(model=model, temperature=temperature)
+        lc_messages = self._to_langchain_messages(messages)
+        try:
+            result = await client.ainvoke(lc_messages)
+        except LLMProviderError:
+            raise
+        except Exception as exc:
+            raise LLMProviderError(f"Gemini completion call failed: {exc}") from exc
+        return LLMResponse(
+            content=result.content,
+            model=model or self._default_model,
+            raw_metadata=result.response_metadata or {},
         )
 
     async def complete_structured(
@@ -135,10 +182,39 @@ class GeminiProvider(LLMProvider):
         model: str | None = None,
         temperature: float = 0.0,
     ) -> T:
-        raise NotImplementedError(
-            "GeminiProvider.complete_structured has no verified implementation in "
-            "this environment — see class docstring."
-        )
+        client = self._client(model=model, temperature=temperature)
+        structured_client = client.with_structured_output(response_schema)
+        lc_messages = self._to_langchain_messages(messages)
+        try:
+            result = await structured_client.ainvoke(lc_messages)
+        except LLMProviderError:
+            raise
+        except (ValidationError, OutputParserException) as exc:
+            # Schema-validation failure specifically — this is the case
+            # ResumeIntelligenceAgent._complete_structured_with_retry
+            # re-prompts once for. Must stay distinct from the broad
+            # except below.
+            logger.warning(
+                "gemini_structured_output_validation_failed",
+                schema=response_schema.__name__,
+                error=str(exc),
+            )
+            raise InvalidStructuredOutputError(
+                f"Gemini response did not match {response_schema.__name__}: {exc}"
+            ) from exc
+        except Exception as exc:
+            raise LLMProviderError(f"Gemini structured completion call failed: {exc}") from exc
+
+        if not isinstance(result, response_schema):
+            # with_structured_output can, depending on method/version,
+            # hand back a dict instead of a validated model instance.
+            # Treat that the same as a validation failure rather than
+            # silently trusting an unvalidated shape.
+            raise InvalidStructuredOutputError(
+                f"Gemini structured output for {response_schema.__name__} was not a "
+                f"validated model instance (got {type(result).__name__})."
+            )
+        return result
 
 
 class OpenAIProvider(LLMProvider):
