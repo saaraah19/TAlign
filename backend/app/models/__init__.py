@@ -6,6 +6,7 @@ defined but not imported here is invisible to migrations.
 
 from app.models.application import Application
 from app.models.company import Company
+from app.models.email import Email
 from app.models.job import Job
 from app.models.parsed_resume import ParsedResume
 from app.models.resume import Resume
@@ -16,11 +17,12 @@ from app.models.user import User
 __all__ = [
     "Application",
     "Company",
+    "Email",
     "Job",
     "ParsedResume",
     "Resume",
     "ResumeAnalysis",
     "Role",
-    "UserRole",
     "User",
+    "UserRole",
 ]

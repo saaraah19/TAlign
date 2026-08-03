@@ -34,7 +34,15 @@ export function useTransitionJob(jobId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (targetStatus: JobStatus) => jobsApi.transition(jobId, targetStatus),
-    onSuccess: () => {
+    // onSettled (not onSuccess): fires whether the mutation resolved or
+    // rejected. If the client believes the request failed for any
+    // reason (network blip, dev-server restart mid-response, a parse
+    // error — see api-client.ts) while the backend actually committed
+    // the transition, this still re-syncs the UI with real server
+    // state within a second, instead of leaving stale data until a
+    // manual refresh. Harmless in the genuine-failure case too, since
+    // refetching an unchanged job is a no-op visually.
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: jobKey(jobId) });
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
     },

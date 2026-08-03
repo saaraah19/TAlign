@@ -49,6 +49,21 @@ class EmploymentType(StrEnum):
     INTERNSHIP = "internship"
 
 
+class Currency(StrEnum):
+    """
+    Label only — no conversion logic anywhere in the codebase. Changing
+    this field changes what's stored and displayed for a job's salary
+    range; it never recalculates salary_min/salary_max. Full multi-
+    currency support (live FX rates, normalized comparison across jobs)
+    was explicitly scoped out of the MVP — see PROJECT_STATUS.md.
+    """
+
+    USD = "USD"
+    EUR = "EUR"
+    GBP = "GBP"
+    CAD = "CAD"
+
+
 class Job(Base):
     __tablename__ = "jobs"
     __table_args__ = (
@@ -62,6 +77,10 @@ class Job(Base):
         CheckConstraint(
             "salary_min IS NULL OR salary_max IS NULL OR salary_min <= salary_max",
             name="ck_jobs_salary_range_valid",
+        ),
+        CheckConstraint(
+            "salary_currency IN ('USD', 'EUR', 'GBP', 'CAD')",
+            name="ck_jobs_salary_currency_valid",
         ),
     )
 
@@ -81,6 +100,7 @@ class Job(Base):
     location: Mapped[str | None] = mapped_column(String(255), nullable=True)
     salary_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
     salary_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    salary_currency: Mapped[str] = mapped_column(String(3), nullable=False, default=Currency.USD)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default=JobStatus.DRAFT)
 
     # --- Recruiter-authored scoring criteria (Slice 4) ---

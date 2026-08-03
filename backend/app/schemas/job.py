@@ -5,7 +5,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.models.job import EmploymentType, JobStatus
+from app.models.job import Currency, EmploymentType, JobStatus
 
 
 class JobCreateRequest(BaseModel):
@@ -15,6 +15,7 @@ class JobCreateRequest(BaseModel):
     location: str | None = Field(default=None, max_length=255)
     salary_min: int | None = Field(default=None, ge=0)
     salary_max: int | None = Field(default=None, ge=0)
+    salary_currency: Currency = Currency.USD
 
     # --- Recruiter-authored scoring criteria (Slice 4) ---
     # These, not `description`, are what the Resume Intelligence Agent
@@ -46,6 +47,7 @@ class JobUpdateRequest(BaseModel):
     location: str | None = Field(default=None, max_length=255)
     salary_min: int | None = Field(default=None, ge=0)
     salary_max: int | None = Field(default=None, ge=0)
+    salary_currency: Currency | None = None
     required_skills: list[str] | None = None
     preferred_skills: list[str] | None = None
     min_years_experience: int | None = Field(default=None, ge=0)
@@ -74,6 +76,7 @@ class JobRead(BaseModel):
     location: str | None
     salary_min: int | None
     salary_max: int | None
+    salary_currency: Currency
     status: JobStatus
     required_skills: list[str]
     preferred_skills: list[str]

@@ -2,6 +2,24 @@ import { z } from "zod";
 
 export type JobStatus = "draft" | "open" | "closed" | "archived";
 export type EmploymentType = "full_time" | "part_time" | "contract" | "internship";
+export type Currency = "USD" | "EUR" | "GBP" | "CAD";
+
+// Label only — matches backend app/models/job.py's Currency enum
+// docstring exactly. Never used for conversion, only for what symbol
+// to render next to a stored salary_min/salary_max.
+export const CURRENCY_SYMBOLS: Record<Currency, string> = {
+  USD: "$",
+  EUR: "€",
+  GBP: "£",
+  CAD: "CA$",
+};
+
+export const CURRENCY_LABELS: Record<Currency, string> = {
+  USD: "USD ($)",
+  EUR: "EUR (€)",
+  GBP: "GBP (£)",
+  CAD: "CAD (CA$)",
+};
 
 // Linear lifecycle, matches backend JobService._ALLOWED_TRANSITIONS
 // exactly. Defined once here so every UI affordance (which button to
@@ -37,6 +55,7 @@ export interface Job {
   location: string | null;
   salary_min: number | null;
   salary_max: number | null;
+  salary_currency: Currency;
   status: JobStatus;
   // Recruiter-authored scoring criteria (Slice 4) — the OFFICIAL
   // checklist Resume Intelligence scores against. `description` above
@@ -65,6 +84,7 @@ export const jobCreateSchema = z
     location: z.string().max(255).optional().or(z.literal("")),
     salary_min: z.coerce.number().int().min(0).optional().or(z.literal("")),
     salary_max: z.coerce.number().int().min(0).optional().or(z.literal("")),
+    salary_currency: z.enum(["USD", "EUR", "GBP", "CAD"]).default("USD"),
     // Comma-separated in the form UI, split into arrays before submit —
     // see JobCreateForm. These are the OFFICIAL scoring criteria; the
     // LLM never infers them from `description`.

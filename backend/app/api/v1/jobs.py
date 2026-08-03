@@ -49,6 +49,7 @@ async def create_job(
         location=payload.location,
         salary_min=payload.salary_min,
         salary_max=payload.salary_max,
+        salary_currency=payload.salary_currency.value,
         required_skills=payload.required_skills,
         preferred_skills=payload.preferred_skills,
         min_years_experience=payload.min_years_experience,
@@ -98,9 +99,14 @@ async def update_job(
     update_fields = payload.model_dump(exclude_unset=True)
     if update_fields.get("employment_type") is not None:
         update_fields["employment_type"] = payload.employment_type.value  # type: ignore[union-attr]
+    if update_fields.get("salary_currency") is not None:
+        update_fields["salary_currency"] = payload.salary_currency.value  # type: ignore[union-attr]
 
     job = await JobService(db).update_job(job_id=job_id, acting_user=current_user, **update_fields)
-    return JobRead.model_validate(job)
+    # Same expired-attribute issue as transition_job_status below — see
+    # that route's comment for the full explanation.
+    full = await JobService(db).get_job(job_id=job.id, acting_user=current_user)
+    return JobRead.model_validate(full)
 
 
 @router.post("/{job_id}/transition", response_model=JobRead)
@@ -113,7 +119,14 @@ async def transition_job_status(
     job, _event = await JobService(db).transition_status(
         job_id=job_id, target_status=payload.target_status, acting_user=current_user
     )
-    return JobRead.model_validate(job)
+    # Re-fetch rather than serializing `job` directly: after commit(),
+    # `updated_at` (a server-side onupdate=func.now() column) is left
+    # expired on the in-memory instance. Reading it synchronously inside
+    # Pydantic's model_validate (as opposed to under an explicit await)
+    # raised MissingGreenlet here — same reasoning as apply_to_job's and
+    # transition_application_status's re-fetch in applications.py.
+    full = await JobService(db).get_job(job_id=job.id, acting_user=current_user)
+    return JobRead.model_validate(full)
 
 
 @router.delete("/{job_id}", status_code=204)

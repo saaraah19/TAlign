@@ -13,6 +13,7 @@ import {
   type ApplicationStatus,
 } from "@/features/applications";
 import { useAuth } from "@/features/auth";
+import { CommunicationPanel } from "@/features/communication";
 import { CompassAsk } from "@/features/compass";
 import { ApiError } from "@/lib/api-client";
 
@@ -87,6 +88,8 @@ export default function ApplicationDetailPage() {
           <h2 className="mb-3 text-sm font-medium text-gray-900">Resume Intelligence</h2>
           <AnalysisDetail applicationId={application.id} />
         </div>
+
+        <CommunicationPanel applicationId={application.id} />
 
         <CompassAsk applicationId={application.id} />
       </div>
