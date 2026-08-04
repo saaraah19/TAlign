@@ -190,3 +190,16 @@ class ResumeNotOwnedError(NotFoundError):
     """
 
     pass
+
+
+# --- Communication Agent exceptions ---
+
+
+class EmailAlreadySentError(ConflictError):
+    """
+    Raised when attempting to edit, regenerate, or re-send an Email
+    whose status is already SENT. A sent email is a historical record
+    — see app/models/email.py's docstring on the DRAFT/SENT lifecycle.
+    """
+
+    pass

@@ -1,6 +1,7 @@
 export { MyApplicationsList } from "./components/my-applications-list";
 export { PipelineView } from "./components/pipeline-view";
 export { ApplyButton } from "./components/apply-button";
+export { ApplyForm } from "./components/apply-form";
 export { ApplicationStatusBadge } from "./components/application-status-badge";
 export { AnalysisProgressIndicator } from "./components/analysis-progress-indicator";
 export { AnalysisDetail } from "./components/analysis-detail";

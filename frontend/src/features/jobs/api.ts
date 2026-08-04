@@ -31,6 +31,7 @@ export const jobsApi = {
         location: input.location || null,
         salary_min: input.salary_min === "" ? null : Number(input.salary_min),
         salary_max: input.salary_max === "" ? null : Number(input.salary_max),
+        salary_currency: input.salary_currency,
         required_skills: splitSkills(input.required_skills_text),
         preferred_skills: splitSkills(input.preferred_skills_text),
         min_years_experience:

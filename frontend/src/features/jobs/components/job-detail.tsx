@@ -3,7 +3,12 @@
 import { useState } from "react";
 import { ApiError } from "@/lib/api-client";
 import { useDeleteJob, useJob, useTransitionJob } from "../hooks/use-jobs";
-import { EMPLOYMENT_TYPE_LABELS, JOB_STATUS_LABELS, JOB_STATUS_TRANSITIONS } from "../types";
+import {
+  CURRENCY_SYMBOLS,
+  EMPLOYMENT_TYPE_LABELS,
+  JOB_STATUS_LABELS,
+  JOB_STATUS_TRANSITIONS,
+} from "../types";
 import { JobStatusBadge } from "./job-status-badge";
 
 export function JobDetail({ jobId, onDeleted }: { jobId: string; onDeleted?: () => void }) {
@@ -27,7 +32,16 @@ export function JobDetail({ jobId, onDeleted }: { jobId: string; onDeleted?: () 
     try {
       await transitionJob.mutateAsync(nextStatus);
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : "Transition failed.");
+      // Logged in full so DevTools Console shows the real cause
+      // directly — no more guessing from a generic fallback message.
+      console.error("Job transition failed:", err);
+      if (err instanceof ApiError) {
+        setActionError(err.message);
+      } else if (err instanceof Error) {
+        setActionError(`Transition failed: ${err.message}`);
+      } else {
+        setActionError("Transition failed for an unknown reason — check the console.");
+      }
     }
   }
 
@@ -52,7 +66,7 @@ export function JobDetail({ jobId, onDeleted }: { jobId: string; onDeleted?: () 
         {EMPLOYMENT_TYPE_LABELS[job.employment_type]}
         {job.location ? ` · ${job.location}` : ""}
         {job.salary_min || job.salary_max
-          ? ` · $${job.salary_min ?? "?"} – $${job.salary_max ?? "?"}`
+          ? ` · ${CURRENCY_SYMBOLS[job.salary_currency]}${job.salary_min ?? "?"} – ${CURRENCY_SYMBOLS[job.salary_currency]}${job.salary_max ?? "?"}`
           : ""}
       </p>
 

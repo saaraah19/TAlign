@@ -62,7 +62,20 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     return undefined as T;
   }
 
-  return response.json() as Promise<T>;
+  try {
+    return (await response.json()) as T;
+  } catch (err) {
+    // A 2xx response with a body that isn't valid JSON (interrupted
+    // connection, dev-server restart mid-response, proxy hiccup, etc.)
+    // — the request may well have succeeded server-side even though we
+    // can't read the response. Surface this as a real ApiError so
+    // callers never see a bare, uninformative parse exception; see
+    // useTransitionJob's onSettled for how the UI recovers from this.
+    throw new ApiError(
+      response.status,
+      `Response could not be parsed (${err instanceof Error ? err.message : "unknown error"}).`,
+    );
+  }
 }
 
 /**

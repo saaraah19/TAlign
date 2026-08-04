@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { ApiError } from "@/lib/api-client";
 import { useCreateJob } from "../hooks/use-jobs";
-import { jobCreateSchema, type JobCreateInput } from "../types";
+import { CURRENCY_LABELS, jobCreateSchema, type JobCreateInput } from "../types";
 
 export function JobCreateForm({ onSuccess }: { onSuccess?: (jobId: string) => void }) {
   const createJob = useCreateJob();
@@ -73,7 +73,7 @@ export function JobCreateForm({ onSuccess }: { onSuccess?: (jobId: string) => vo
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium">Min salary</label>
           <input
@@ -92,6 +92,19 @@ export function JobCreateForm({ onSuccess }: { onSuccess?: (jobId: string) => vo
           {errors.salary_max && (
             <p className="mt-1 text-sm text-red-600">{errors.salary_max.message}</p>
           )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium">Currency</label>
+          <select
+            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            {...register("salary_currency")}
+          >
+            {Object.entries(CURRENCY_LABELS).map(([code, label]) => (
+              <option key={code} value={code}>
+                {label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { ApplyButton } from "@/features/applications";
-import { EMPLOYMENT_TYPE_LABELS, usePublicJob } from "@/features/jobs";
+import { CURRENCY_SYMBOLS, EMPLOYMENT_TYPE_LABELS, usePublicJob } from "@/features/jobs";
 
 export default function PublicJobDetailPage() {
   const params = useParams<{ id: string }>();
@@ -24,7 +24,7 @@ export default function PublicJobDetailPage() {
         {EMPLOYMENT_TYPE_LABELS[job.employment_type]}
         {job.location ? ` · ${job.location}` : ""}
         {job.salary_min || job.salary_max
-          ? ` · $${job.salary_min ?? "?"} – $${job.salary_max ?? "?"}`
+          ? ` · ${CURRENCY_SYMBOLS[job.salary_currency]}${job.salary_min ?? "?"} – ${CURRENCY_SYMBOLS[job.salary_currency]}${job.salary_max ?? "?"}`
           : ""}
       </p>
 
