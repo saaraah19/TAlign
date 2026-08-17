@@ -203,3 +203,33 @@ class EmailAlreadySentError(ConflictError):
     """
 
     pass
+
+
+# --- Knowledge Agent exceptions ---
+
+
+class DocumentProcessingError(TalignError):
+    """
+    Raised when any step of the knowledge document pipeline fails
+    (text extraction, chunking producing zero chunks, or embedding).
+    Caught by KnowledgeDocumentService, which persists it as
+    KnowledgeDocument.status = FAILED with the message recorded — never
+    left as an unhandled exception, same discipline as Resume's
+    PARSE_FAILED handling.
+    """
+
+    http_status = 422
+
+
+class KnowledgeAnswerValidationError(TalignError):
+    """
+    Raised when the LLM's structured answer cites a chunk_id that was
+    never actually provided in its context — the RAG-specific structural
+    anti-hallucination check described in
+    docs/06_slice6_knowledge_agent.md section 7. Distinct from
+    InvalidStructuredOutputError (which is a schema-shape failure) —
+    this is a schema-VALID response whose *content* fabricated a source,
+    which is arguably worse.
+    """
+
+    http_status = 502

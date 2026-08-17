@@ -1,11 +1,20 @@
 """
-Resume text extraction — file bytes -> plain text.
+Document text extraction — file bytes -> plain text.
 
-Entirely deterministic (pypdf / python-docx / plain decode). This is the
-step BEFORE any LLM involvement — see app/models/resume.py's docstring
-for the full pipeline shape. Raises ResumeTextExtractionError on failure
-(corrupt file, unreadable PDF, etc); callers persist that as
-Resume.status = PARSE_FAILED and stop before any LLM call is attempted.
+Entirely deterministic (pypdf / python-docx / plain decode). Originally
+written for Resume Intelligence (this is the step BEFORE any LLM
+involvement — see app/models/resume.py's docstring for that pipeline
+shape); renamed from resume_text_extraction.py in Slice 6 once the
+Knowledge Agent needed the exact same file-bytes-to-text operation for
+uploaded policy documents. Nothing in this file's implementation was
+ever resume-specific — it's a generic document utility that happened to
+have only one caller until now.
+
+Raises ResumeTextExtractionError on failure (corrupt file, unreadable
+PDF, etc) — the name predates this file's generalization and is kept
+as-is rather than renamed, since renaming an exception type ripples
+through every catch site across two now-unrelated domains for a purely
+cosmetic gain; not worth the churn.
 """
 
 from app.core.exceptions import ResumeTextExtractionError
