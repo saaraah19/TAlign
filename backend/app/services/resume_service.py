@@ -35,8 +35,8 @@ from app.models.resume import Resume, ResumeStatus
 from app.models.user import User
 from app.repositories.parsed_resume_repository import ParsedResumeRepository
 from app.repositories.resume_repository import ResumeRepository
+from app.utils.document_text_extraction import extract_text
 from app.utils.local_file_storage import save_resume_file
-from app.utils.resume_text_extraction import extract_text
 
 
 class ResumeService:
@@ -152,10 +152,10 @@ class ResumeService:
 
     @staticmethod
     def _assert_valid_file(*, content_type: str, size: int) -> None:
-        if content_type not in settings.allowed_resume_content_types:
+        if content_type not in settings.allowed_document_content_types:
             raise UnsupportedFileTypeError(
                 f"Unsupported file type '{content_type}'. Allowed types: "
-                f"{', '.join(settings.allowed_resume_content_types)}."
+                f"{', '.join(settings.allowed_document_content_types)}."
             )
         if size > settings.max_resume_file_size_bytes:
             max_mb = settings.max_resume_file_size_bytes / (1024 * 1024)

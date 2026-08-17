@@ -21,7 +21,7 @@ from typing import TypeVar
 import structlog
 from langchain_core.exceptions import OutputParserException
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from pydantic import BaseModel, ValidationError
 
 from app.core.config import settings
@@ -265,3 +265,115 @@ def get_llm_provider() -> LLMProvider:
             default_model=settings.llm_default_model,
         )
     raise ValueError(f"Unsupported LLM provider configured: {settings.llm_provider}")
+
+
+# =============================================================================
+# Embedding provider — Slice 6 (Knowledge Agent).
+#
+# Kept in this same file, not a new one: the module-level RULE above
+# ("no file outside this module may import an LLM SDK directly") is
+# about SDK-import containment, not about chat-completions specifically.
+# Adding the embedding classes here preserves that single boundary
+# exactly, rather than creating a second SDK-touching file to track.
+# =============================================================================
+
+
+class EmbeddingProvider(ABC):
+    """
+    Contract every embedding provider must satisfy. Two methods, matching
+    Gemini's own asymmetric embedding design: a document being indexed
+    and a question being asked are embedded slightly differently under
+    the hood (`task_type`), which measurably improves retrieval quality
+    over treating them identically — see `embed_documents` vs
+    `embed_query` below.
+    """
+
+    @abstractmethod
+    async def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        """Embed a batch of chunks being indexed. One call per document's chunks, not per chunk."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def embed_query(self, text: str) -> list[float]:
+        """Embed a single question at query time."""
+        raise NotImplementedError
+
+
+class GeminiEmbeddingProvider(EmbeddingProvider):
+    """
+    Google Gemini implementation, built on the same `langchain_google_genai`
+    SDK GeminiProvider already uses.
+
+    Model: `gemini-embedding-001` (stable, GA) — not the newer
+    `gemini-embedding-2`, which is multimodal but still Preview status.
+    This project already hit a real production issue from a `-preview`
+    model's quota limits (Slice 4's GeminiProvider default), so a stable
+    model is the deliberate choice for anything MVP-critical.
+
+    Dimension: 768, via `output_dimensionality` — the model natively
+    produces 3072-dim vectors, truncated via Matryoshka Representation
+    Learning (Google's own technique for this model; truncating loses
+    little quality per their documentation). 768 keeps KnowledgeChunk's
+    `Vector(768)` column reasonably sized while leaving meaningful
+    headroom below the model's max, in case retrieval quality ever
+    warrants moving up to 1536 later — that's a re-embedding migration,
+    not a breaking schema change in kind.
+    """
+
+    _MODEL = "gemini-embedding-001"
+    _DIMENSION = 768
+
+    def __init__(self, api_key: str | None) -> None:
+        self._api_key = api_key
+
+    def _client(self, *, task_type: str) -> GoogleGenerativeAIEmbeddings:
+        if not self._api_key:
+            raise LLMProviderError(
+                "GOOGLE_API_KEY is not configured; GeminiEmbeddingProvider cannot make a call."
+            )
+        return GoogleGenerativeAIEmbeddings(
+            model=self._MODEL,
+            google_api_key=self._api_key,
+            task_type=task_type,
+            output_dimensionality=self._DIMENSION,
+        )
+
+    async def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        client = self._client(task_type="retrieval_document")
+        try:
+            return await client.aembed_documents(texts)
+        except LLMProviderError:
+            raise
+        except Exception as exc:
+            raise LLMProviderError(f"Gemini embedding call failed: {exc}") from exc
+
+    async def embed_query(self, text: str) -> list[float]:
+        client = self._client(task_type="retrieval_query")
+        try:
+            return await client.aembed_query(text)
+        except LLMProviderError:
+            raise
+        except Exception as exc:
+            raise LLMProviderError(f"Gemini query embedding call failed: {exc}") from exc
+
+    @property
+    def model_name(self) -> str:
+        return self._MODEL
+
+    @property
+    def dimension(self) -> int:
+        return self._DIMENSION
+
+
+@lru_cache
+def get_embedding_provider() -> EmbeddingProvider:
+    """
+    Mirrors get_llm_provider()'s factory pattern exactly — the only
+    place branching on which embedding provider is configured. Not
+    branching on settings.llm_provider (that setting is chat-completion-
+    specific); embeddings default to Gemini regardless, since no
+    alternative embedding provider exists in this codebase yet. Adding
+    one later is the same one-function change get_llm_provider() would
+    need for a new chat provider.
+    """
+    return GeminiEmbeddingProvider(api_key=settings.google_api_key)

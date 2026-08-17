@@ -8,6 +8,8 @@ from app.models.application import Application
 from app.models.company import Company
 from app.models.email import Email
 from app.models.job import Job
+from app.models.knowledge_chunk import KnowledgeChunk
+from app.models.knowledge_document import KnowledgeDocument
 from app.models.parsed_resume import ParsedResume
 from app.models.resume import Resume
 from app.models.resume_analysis import ResumeAnalysis
@@ -19,6 +21,8 @@ __all__ = [
     "Company",
     "Email",
     "Job",
+    "KnowledgeChunk",
+    "KnowledgeDocument",
     "ParsedResume",
     "Resume",
     "ResumeAnalysis",

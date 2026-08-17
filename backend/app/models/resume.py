@@ -10,7 +10,7 @@ across every job the candidate applies with that resume, and only run a
 fresh LLM call for the job-specific alignment reasoning each time.
 
 `raw_text` is populated by a DETERMINISTIC step (pypdf/python-docx, see
-app/utils/resume_text_extraction.py) — no LLM involved in getting from
+app/utils/document_text_extraction.py) — no LLM involved in getting from
 file bytes to plain text. The LLM enters one step later, turning that
 raw text into structured skills/experience (ParsedResume).
 """
