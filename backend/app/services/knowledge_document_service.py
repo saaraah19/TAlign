@@ -317,7 +317,18 @@ class KnowledgeDocumentService:
         # Chunks cascade-delete at the DB level — see
         # KnowledgeDocumentRepository.delete's docstring.
         await self._documents.delete(document)
-
+        # This commit was missing originally — KnowledgeDocumentRepository
+        # .delete() only flushes (consistent with every other repository
+        # write method in this codebase; repositories flush, services
+        # commit). get_db()'s session dependency never auto-commits
+        # (`async with AsyncSessionLocal() as session: yield session`,
+        # nothing else) — without an explicit commit here, the delete
+        # was visible within the same request's transaction (hence the
+        # 204 response) but silently rolled back the moment the request
+        # finished, so the row was still there on the next read. Every
+        # OTHER mutating method in this file already commits explicitly;
+        # this one was simply missed.
+        await self._db.commit()
     # --- Internal helpers ---
 
     def _transition(self, document: KnowledgeDocument, target: DocumentStatus) -> None:
