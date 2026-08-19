@@ -10,9 +10,10 @@ no capability needs it yet), or nothing this role can do.
 
 RULE (explicit, from the Slice 2 clarification): Compass never contains
 business logic. Its job, exactly:
-  - understand intent (here: a role-based heuristic lookup — V1 has one
-    capability per role, so there's nothing to disambiguate; see
-    `_resolve_capability_for_role`)
+  - understand intent (a role-based heuristic lookup, still not real
+    LLM intent classification — see `_resolve_capability_for_role`.
+    Internal roles now reach two capabilities, disambiguated by whether
+    a workspace is in view, not by parsing the message text)
   - build context (delegated to CompassContextBuilder, which calls
     existing services — Compass itself never touches a repository or
     the database)
@@ -38,12 +39,20 @@ from dataclasses import dataclass
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.base import AgentContext
+from app.agents.knowledge.confidence import RetrievalConfidence
+from app.agents.knowledge.schemas import Citation
 from app.agents.registry import AgentRegistry, agent_registry
 from app.compass.capability_registry import CompassCapabilityRegistry, compass_capability_registry
 from app.compass.context import WorkspaceContext
 from app.compass.context_builder import CompassContextBuilder
 from app.core.exceptions import NotFoundError
 from app.core.roles import Role
+from app.services.knowledge_query_service import KnowledgeQueryService
+
+# Capabilities that need a specific workspace (an application) in view.
+# knowledge_query is deliberately absent — it's a general company
+# question, never scoped to a single application.
+_WORKSPACE_REQUIRED_CAPABILITIES = frozenset({"application_status", "explain_analysis"})
 
 
 @dataclass
@@ -51,6 +60,14 @@ class CompassResponse:
     message: str
     capability_used: str | None
     reasoning: str | None = None
+    #: Only populated for capability_used == "knowledge_query". Kept as
+    #: plain Citation objects here (not the API's KnowledgeCitationRead)
+    #: — the API layer (app/api/v1/compass.py) does that translation,
+    #: same "internal layers use domain/agent types, the API layer owns
+    #: its own read schemas" separation used everywhere else in this
+    #: codebase.
+    citations: list[Citation] | None = None
+    confidence: RetrievalConfidence | None = None
 
 
 class Compass:
@@ -59,13 +76,16 @@ class Compass:
         db: AsyncSession,
         agent_registry_: AgentRegistry = agent_registry,
         capability_registry: CompassCapabilityRegistry = compass_capability_registry,
+        knowledge_query_service: KnowledgeQueryService | None = None,
     ) -> None:
+        self._db = db
         self._agents = agent_registry_
         self._capabilities = capability_registry
         self._context_builder = CompassContextBuilder(db)
+        self._knowledge_query_service = knowledge_query_service or KnowledgeQueryService(db)
 
     async def handle_message(self, message: str, context: WorkspaceContext) -> CompassResponse:
-        capability_name = self._resolve_capability_for_role(context.role)
+        capability_name = self._resolve_capability_for_role(context.role, context.workspace_id)
         if capability_name is None:
             return CompassResponse(
                 message="I'm not able to help with that yet.", capability_used=None
@@ -81,11 +101,20 @@ class Compass:
                 message="You don't have access to that capability.", capability_used=None
             )
 
-        if context.workspace_id is None:
+        if capability_name in _WORKSPACE_REQUIRED_CAPABILITIES and context.workspace_id is None:
             return CompassResponse(
                 message="I need to know which application you're asking about.",
                 capability_used=None,
             )
+
+        if capability_name == "knowledge_query":
+            # Service-backed, not agent-registry-backed — see this
+            # module's docstring and KnowledgeQueryService's own
+            # docstring for why: Knowledge Agent's query-answering IS
+            # the generation step, with no separate "context builder
+            # fetches data, then agent.run() narrates" split the way
+            # explain_analysis has.
+            return await self._handle_knowledge_query(message, context)
 
         try:
             payload = await self._build_context_payload(capability_name, message, context)
@@ -104,20 +133,37 @@ class Compass:
             reasoning=result.reasoning,
         )
 
+    async def _handle_knowledge_query(
+        self, message: str, context: WorkspaceContext
+    ) -> CompassResponse:
+        result = await self._knowledge_query_service.ask(
+            question=message, acting_user=context.data["current_user"]
+        )
+        return CompassResponse(
+            message=result.answer,
+            capability_used="knowledge_query",
+            citations=result.citations,
+            confidence=result.confidence,
+        )
+
     @staticmethod
-    def _resolve_capability_for_role(role: Role) -> str | None:
+    def _resolve_capability_for_role(role: Role, workspace_id: str | None) -> str | None:
         """
-        V1 heuristic: exactly one capability per role, so there is
-        nothing to disambiguate from the message text — routing is a
-        role lookup, not intent classification. Real (LLM-based) intent
-        recognition is worth building once there are enough capabilities
-        that this stops being true; see docs/04_slice4_resume_intelligence.md
-        section E.
+        V1 heuristic, now with one real disambiguation: internal roles
+        (ADMIN/RECRUITER/HIRING_MANAGER) can reach two capabilities —
+        `workspace_id` presence is the signal for which one, since it's
+        a structural fact Compass already has, not a guess at intent. A
+        request scoped to a specific application means "explain_analysis";
+        a request with no workspace in view means a general company
+        question, "knowledge_query". Still not real (LLM-based) intent
+        classification — see app/compass/intent.py's docstring for when
+        that becomes worth building (once a role's capabilities can't be
+        told apart by structural context alone).
         """
         if role is Role.CANDIDATE:
             return "application_status"
         if role in (Role.ADMIN, Role.RECRUITER, Role.HIRING_MANAGER):
-            return "explain_analysis"
+            return "explain_analysis" if workspace_id is not None else "knowledge_query"
         return None
 
     async def _build_context_payload(

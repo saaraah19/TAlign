@@ -17,6 +17,7 @@ node_modules/
 .next/
 out/
 next-env.d.ts
+tsconfig.tsbuildinfo
 
 # --- Storage (local file uploads, MVP only) ---
 storage/

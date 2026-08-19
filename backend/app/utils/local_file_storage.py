@@ -31,3 +31,26 @@ def save_resume_file(*, candidate_id: uuid.UUID, filename: str, content: bytes) 
 
 def read_resume_file(file_path: str) -> bytes:
     return Path(file_path).read_bytes()
+
+
+def save_knowledge_document_file(*, company_id: uuid.UUID, filename: str, content: bytes) -> str:
+    """
+    Writes an uploaded knowledge document to
+    `{local_storage_path}/knowledge/{company_id}/{uuid}_{filename}` and
+    returns the path. Same convention as save_resume_file, company-
+    scoped instead of candidate-scoped — knowledge documents belong to
+    a company, not an individual uploader.
+    """
+    company_dir = Path(settings.local_storage_path) / "knowledge" / str(company_id)
+    company_dir.mkdir(parents=True, exist_ok=True)
+
+    safe_filename = f"{uuid.uuid4().hex}_{filename}"
+    file_path = company_dir / safe_filename
+    file_path.write_bytes(content)
+
+    return str(file_path)
+
+
+def read_knowledge_document_file(file_path: str) -> bytes:
+    """Used by reindex() to re-read an already-stored document's bytes without re-uploading."""
+    return Path(file_path).read_bytes()

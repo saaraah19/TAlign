@@ -29,22 +29,22 @@ def test_candidate_can_access_application_status_only() -> None:
     assert names == {"application_status"}
 
 
-def test_recruiter_can_access_explain_analysis_only() -> None:
+def test_recruiter_can_access_explain_analysis_and_knowledge_query() -> None:
     available = compass_capability_registry.available_for_role(Role.RECRUITER)
     names = {c.name for c in available}
-    assert names == {"explain_analysis"}
+    assert names == {"explain_analysis", "knowledge_query"}
 
 
-def test_hiring_manager_can_access_explain_analysis() -> None:
+def test_hiring_manager_can_access_explain_analysis_and_knowledge_query() -> None:
     available = compass_capability_registry.available_for_role(Role.HIRING_MANAGER)
     names = {c.name for c in available}
-    assert "explain_analysis" in names
+    assert names == {"explain_analysis", "knowledge_query"}
 
 
-def test_admin_can_access_explain_analysis() -> None:
+def test_admin_can_access_explain_analysis_and_knowledge_query() -> None:
     available = compass_capability_registry.available_for_role(Role.ADMIN)
     names = {c.name for c in available}
-    assert "explain_analysis" in names
+    assert names == {"explain_analysis", "knowledge_query"}
 
 
 def test_candidate_cannot_access_explain_analysis() -> None:
@@ -62,13 +62,25 @@ def test_employee_role_has_no_registered_capabilities_in_v1() -> None:
 
 
 def test_compass_resolves_candidate_to_application_status() -> None:
-    assert Compass._resolve_capability_for_role(Role.CANDIDATE) == "application_status"
+    assert Compass._resolve_capability_for_role(Role.CANDIDATE, "some-workspace-id") == (
+        "application_status"
+    )
+    # Candidates only have one capability regardless of workspace_id.
+    assert Compass._resolve_capability_for_role(Role.CANDIDATE, None) == "application_status"
 
 
-def test_compass_resolves_internal_roles_to_explain_analysis() -> None:
+def test_compass_resolves_internal_roles_with_workspace_to_explain_analysis() -> None:
     for role in (Role.ADMIN, Role.RECRUITER, Role.HIRING_MANAGER):
-        assert Compass._resolve_capability_for_role(role) == "explain_analysis"
+        assert Compass._resolve_capability_for_role(role, "some-application-id") == (
+            "explain_analysis"
+        )
+
+
+def test_compass_resolves_internal_roles_without_workspace_to_knowledge_query() -> None:
+    for role in (Role.ADMIN, Role.RECRUITER, Role.HIRING_MANAGER):
+        assert Compass._resolve_capability_for_role(role, None) == "knowledge_query"
 
 
 def test_compass_resolves_employee_to_nothing_in_v1() -> None:
-    assert Compass._resolve_capability_for_role(Role.EMPLOYEE) is None
+    assert Compass._resolve_capability_for_role(Role.EMPLOYEE, None) is None
+    assert Compass._resolve_capability_for_role(Role.EMPLOYEE, "some-workspace-id") is None

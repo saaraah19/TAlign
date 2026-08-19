@@ -46,6 +46,9 @@ export default function DashboardPage() {
           <a href="/pipeline" className="text-sm font-medium text-gray-900 underline">
             View pipeline →
           </a>
+          <a href="/knowledge" className="text-sm font-medium text-gray-900 underline">
+            Knowledge Center →
+          </a>
         </div>
       )}
 

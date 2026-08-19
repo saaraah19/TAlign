@@ -52,3 +52,19 @@ def register_default_capabilities() -> None:
                 allowed_roles=frozenset({Role.ADMIN, Role.RECRUITER, Role.HIRING_MANAGER}),
             )
         )
+        compass_capability_registry.register(
+            CompassCapability(
+                name="knowledge_query",
+                description=(
+                    "Answers a general company-knowledge question (policies, benefits, "
+                    "procedures) via retrieval-augmented generation over uploaded "
+                    "Knowledge Documents. Not workspace-scoped — unlike explain_analysis, "
+                    "it isn't about any specific application. Role scope deliberately "
+                    "excludes Role.EMPLOYEE: the Employee Portal is V2-deferred, so "
+                    "employees have no UI path to reach this capability yet, and granting "
+                    "a role a capability with zero way to invoke it is dead RBAC surface "
+                    "(see HANDOVER.md's Slice 6 architecture notes)."
+                ),
+                allowed_roles=frozenset({Role.ADMIN, Role.RECRUITER, Role.HIRING_MANAGER}),
+            )
+        )
