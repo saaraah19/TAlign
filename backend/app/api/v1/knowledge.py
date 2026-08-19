@@ -57,7 +57,8 @@ async def upload_knowledge_document(
     polls for READY (or FAILED with `error_message` set).
     """
     content = await file.read()
-    document = await KnowledgeDocumentService(db).upload_document(
+    service = KnowledgeDocumentService(db)
+    document = await service.upload_document(
         acting_user=current_user,
         title=title,
         category=category.value,
@@ -66,7 +67,15 @@ async def upload_knowledge_document(
         content=content,
     )
     background_tasks.add_task(run_embedding_task, document.id)
-    return KnowledgeDocumentRead.model_validate(document)
+    # Re-fetch rather than serializing `document` directly: after
+    # upload_document()'s commit(), `updated_at` (a server-side
+    # onupdate=func.now() column) is left expired on the in-memory
+    # instance. Reading it synchronously inside Pydantic's
+    # model_validate raises MissingGreenlet — same bug class already
+    # fixed once in jobs.py/applications.py (see their docstrings on
+    # this exact pattern), which I missed applying here originally.
+    full = await service.get_by_id_for_company(document_id=document.id, acting_user=current_user)
+    return KnowledgeDocumentRead.model_validate(full)
 
 
 @router.get("/documents", response_model=KnowledgeDocumentListResponse)
@@ -122,8 +131,10 @@ async def reindex_knowledge_document(
     current_user: User = Depends(require_roles(*_MANAGE_ROLES)),
 ) -> KnowledgeDocumentRead:
     """Amendment 5 — see KnowledgeDocumentService.reindex's docstring."""
-    document = await KnowledgeDocumentService(db).reindex(
-        document_id=document_id, acting_user=current_user
-    )
+    service = KnowledgeDocumentService(db)
+    document = await service.reindex(document_id=document_id, acting_user=current_user)
     background_tasks.add_task(run_embedding_task, document.id)
-    return KnowledgeDocumentRead.model_validate(document)
+    # Same re-fetch-before-serializing fix as upload_knowledge_document
+    # above — reindex() also ends in a commit().
+    full = await service.get_by_id_for_company(document_id=document.id, acting_user=current_user)
+    return KnowledgeDocumentRead.model_validate(full)
