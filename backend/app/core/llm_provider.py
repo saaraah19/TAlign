@@ -298,6 +298,25 @@ class EmbeddingProvider(ABC):
         """Embed a single question at query time."""
         raise NotImplementedError
 
+    @property
+    @abstractmethod
+    def model_name(self) -> str:
+        """
+        Identifies which model produced a given embedding. Part of the
+        contract (not just GeminiEmbeddingProvider-specific) because
+        KnowledgeDocumentService persists this as embedding provenance
+        (KnowledgeDocument.embedding_model — see that model's docstring)
+        against the abstract `EmbeddingProvider` type, never a concrete
+        provider class, so a future second provider is a drop-in.
+        """
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def dimension(self) -> int:
+        """Vector dimension this provider produces — persisted as embedding_dimension."""
+        raise NotImplementedError
+
 
 class GeminiEmbeddingProvider(EmbeddingProvider):
     """
