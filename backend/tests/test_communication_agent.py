@@ -9,6 +9,7 @@ import pytest
 from app.agents.communication.agent import CommunicationAgent
 from app.agents.communication.prompts import (
     INTERVIEW_INVITATION_PROMPT_VERSION,
+    ONBOARDING_WELCOME_PROMPT_VERSION,
     REJECTION_PROMPT_VERSION,
 )
 from app.agents.communication.schemas import DraftEmailSchema
@@ -90,6 +91,23 @@ async def test_malformed_output_fails_permanently_after_one_retry() -> None:
         )
 
     assert len(fake.calls) == 2
+
+
+async def test_draft_welcome_email_returns_schema_and_provenance() -> None:
+    """
+    Slice 7 addition: draft_welcome_email is called by the Workflow
+    Engine's hire workflow, not a recruiter button click, but the Agent
+    boundary itself is unchanged — same schema, same retry helper.
+    """
+    fake = FakeLLMProvider(structured_responses=[_SAMPLE_DRAFT])
+    agent = CommunicationAgent(llm_provider=fake)
+
+    outcome = await agent.draft_welcome_email(
+        candidate_first_name="Ahmed", job_title="Backend Engineer", company_name="Talign"
+    )
+
+    assert outcome.schema == _SAMPLE_DRAFT
+    assert outcome.prompt_version == ONBOARDING_WELCOME_PROMPT_VERSION
 
 
 async def test_rejection_prompt_includes_strengths_when_provided() -> None:

@@ -57,7 +57,7 @@ export function JobDetail({ jobId, onDeleted }: { jobId: string; onDeleted?: () 
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl font-semibold">{job.title}</h1>
         <JobStatusBadge status={job.status} />
       </div>
@@ -74,7 +74,7 @@ export function JobDetail({ jobId, onDeleted }: { jobId: string; onDeleted?: () 
 
       {actionError && <p className="text-sm text-red-600">{actionError}</p>}
 
-      <div className="flex gap-3 pt-2">
+      <div className="flex flex-wrap gap-3 pt-2">
         {nextStatus && (
           <button
             onClick={handleTransition}

@@ -25,7 +25,28 @@ class EmailRepository:
         return email
 
     async def get_by_id(self, email_id: uuid.UUID) -> Email | None:
-        return await self._db.get(Email, email_id)
+        """
+        `populate_existing=True` is load-bearing, not decoration: every
+        caller of this method (via CommunicationService._reload) calls it
+        AFTER mutating and committing this exact row earlier in the same
+        session — so the row is already in the session's identity map.
+        Plain `session.get()` returns that cached in-memory instance
+        without re-querying at all once an object is identity-mapped;
+        `updated_at` (an `onupdate=func.now()` column, populated by an
+        UPDATE issued without a RETURNING clause) is left in a
+        needs-lazy-load state, and Pydantic's synchronous
+        `model_validate()` triggering that lazy load outside an awaited
+        context is exactly what raises MissingGreenlet. Forcing
+        populate_existing makes SQLAlchemy re-issue a real SELECT and
+        populate every attribute within this awaited call, so nothing is
+        left to lazy-load later. See CommunicationService's module
+        docstring for the "re-fetch after every UPDATE" rule this method
+        exists to satisfy — this fixes an existing gap in it, not a new
+        requirement: the intent was always "return demonstrably fresh
+        data," and a same-session identity-mapped get() silently wasn't
+        doing that.
+        """
+        return await self._db.get(Email, email_id, populate_existing=True)
 
     async def get_by_id_for_company(
         self, email_id: uuid.UUID, company_id: uuid.UUID

@@ -19,7 +19,8 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/jobs") ||
     pathname.startsWith("/applications") ||
-    pathname.startsWith("/pipeline");
+    pathname.startsWith("/pipeline") ||
+    pathname.startsWith("/knowledge");
   const isAuthRoute =
     pathname.startsWith("/login") || pathname.startsWith("/register");
 
@@ -40,6 +41,7 @@ export const config = {
     "/jobs/:path*",
     "/applications/:path*",
     "/pipeline/:path*",
+    "/knowledge/:path*",
     "/login",
     "/register/:path*",
   ],

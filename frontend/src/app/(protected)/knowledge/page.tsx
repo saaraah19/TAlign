@@ -1,7 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { useAuth } from "@/features/auth";
 import { CompassAsk } from "@/features/compass";
 import { DocumentList, DocumentUpload } from "@/features/knowledge";
@@ -12,21 +10,15 @@ import { DocumentList, DocumentUpload } from "@/features/knowledge";
 const READ_ROLES = ["admin", "recruiter", "hiring_manager"];
 
 export default function KnowledgePage() {
-  const { user, isLoading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!isLoading && !user) router.replace("/login");
-  }, [isLoading, user, router]);
-
-  if (isLoading || !user) return <main className="p-8 text-sm text-gray-500">Loading…</main>;
+  const { user } = useAuth();
+  if (!user) return null; // guaranteed non-null by (protected)/layout.tsx
 
   const canRead = user.roles.some((role) => READ_ROLES.includes(role));
   const canManage = user.roles.includes("admin");
 
   if (!canRead) {
     return (
-      <main className="mx-auto max-w-3xl p-8">
+      <main className="mx-auto max-w-3xl p-6 sm:p-8">
         <p className="text-sm text-gray-500">
           The Knowledge Center isn't available for your role yet.
         </p>
@@ -35,7 +27,7 @@ export default function KnowledgePage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl p-8">
+    <main className="mx-auto max-w-3xl p-6 sm:p-8">
       <h1 className="text-xl font-semibold">Knowledge Center</h1>
       <p className="mt-1 text-sm text-gray-500">
         Company policies, benefits, and procedures Compass can answer questions from.

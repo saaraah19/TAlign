@@ -2,11 +2,21 @@
 CommunicationService.
 
 Owns the Email lifecycle: generate a draft (calling CommunicationAgent),
-let the recruiter regenerate or hand-edit it, and mark it sent. No
-Workflow Engine, no Compass, no automatic triggering anywhere in this
-file — every method here is invoked by an explicit recruiter action
-(a button click), matching the "manual trigger only" scope decision for
-this slice.
+let the recruiter regenerate or hand-edit it, and mark it sent.
+
+Slice 5 scope note, now revised in Slice 7: `generate_draft`,
+`regenerate_draft`, `update_draft`, and `mark_as_sent` are still only
+ever invoked by an explicit recruiter action (a button click) — that
+part of the original "no automatic triggering" claim still holds for
+those four methods. `generate_system_draft` is the one exception,
+added in Slice 7 for the Workflow Engine's hire workflow: it IS
+triggered automatically, with no recruiter action and no acting_user/
+RBAC check, because it's never reachable from an HTTP route — only
+`HireCandidateWorkflow` calls it. The safety property that survives
+this change unmodified is the one that actually matters: no email ever
+sends without a human reviewing the draft first (draft creation is not
+the same as sending, and `mark_as_sent` — the only path to SENT — still
+requires an explicit recruiter action, same as always).
 
 Re-fetch-after-commit note: every method that performs an UPDATE
 (regenerate_draft, update_draft, mark_as_sent) re-fetches the row
@@ -91,6 +101,61 @@ class CommunicationService:
         persisted = await self._emails.create(email)
         await self._db.commit()
         return persisted
+
+    async def generate_system_draft(
+        self,
+        *,
+        application_id: uuid.UUID,
+        company_id: uuid.UUID,
+        email_type: str,
+        recipient_email: str,
+        candidate_first_name: str,
+        job_title: str,
+        company_name: str,
+    ) -> tuple[Email, bool]:
+        """
+        System-triggered counterpart to `generate_draft` — see module
+        docstring. Takes plain structured fields (the caller, i.e.
+        HireCandidateWorkflow, already has these in a HireWorkflowContext
+        and passes them through directly) rather than an application_id
+        this method would otherwise have to re-fetch from the database
+        itself the way `generate_draft` does. No acting_user: this path
+        has no RBAC surface to check because no HTTP route ever reaches
+        it.
+
+        Idempotent the same way `generate_draft` is: returns
+        (email, created) so the caller can tell "drafted fresh" from
+        "a draft of this type already existed for this application."
+        """
+        existing = await self._emails.get_current_draft(application_id, email_type)
+        if existing is not None:
+            return existing, False
+
+        if email_type != "onboarding_welcome":
+            raise ValueError(f"generate_system_draft does not support email_type: {email_type!r}")
+
+        outcome = await self._agent.draft_welcome_email(
+            candidate_first_name=candidate_first_name,
+            job_title=job_title,
+            company_name=company_name,
+        )
+
+        email = Email(
+            application_id=application_id,
+            company_id=company_id,
+            created_by=None,
+            email_type=email_type,
+            status=EmailStatus.DRAFT.value,
+            recipient_email=recipient_email,
+            subject=outcome.schema.subject,
+            body=outcome.schema.body,
+            llm_provider=outcome.llm_provider,
+            llm_model=outcome.llm_model,
+            prompt_version=outcome.prompt_version,
+        )
+        persisted = await self._emails.create(email)
+        await self._db.commit()
+        return persisted, True
 
     async def regenerate_draft(self, *, email_id: uuid.UUID, acting_user: User) -> Email:
         email = await self._get_owned_email(email_id, acting_user)

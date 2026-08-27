@@ -53,6 +53,22 @@ class ApplicationRepository:
         """
         return await self._db.get(Application, application_id)
 
+    async def get_by_id_with_relations(self, application_id: uuid.UUID) -> Application | None:
+        """
+        Unscoped, like get_by_id above (same "runs outside any request/
+        user context" reasoning) but eager-loads `job` and `candidate` —
+        used by the hire workflow's background task
+        (app/workflow_engine/tasks.py), which needs the candidate's name/
+        email and the job title without a company_id to scope through
+        the way get_by_id_for_company has.
+        """
+        result = await self._db.execute(
+            select(Application)
+            .options(selectinload(Application.job), selectinload(Application.candidate))
+            .where(Application.id == application_id)
+        )
+        return result.scalar_one_or_none()
+
     async def get_by_id_for_candidate(
         self, application_id: uuid.UUID, candidate_id: uuid.UUID
     ) -> Application | None:

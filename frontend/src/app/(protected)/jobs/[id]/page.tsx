@@ -8,7 +8,7 @@ export default function JobDetailPage() {
   const router = useRouter();
 
   return (
-    <main className="mx-auto max-w-2xl p-8">
+    <main className="mx-auto max-w-2xl p-6 sm:p-8">
       <JobDetail jobId={params.id} onDeleted={() => router.push("/jobs")} />
     </main>
   );

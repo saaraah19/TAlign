@@ -27,6 +27,7 @@ from app.core.llm_provider import LLMMessage
 
 REJECTION_PROMPT_VERSION = "rejection_email_v1"
 INTERVIEW_INVITATION_PROMPT_VERSION = "interview_invitation_email_v1"
+ONBOARDING_WELCOME_PROMPT_VERSION = "onboarding_welcome_email_v1"
 
 _TONE_INSTRUCTIONS = """
 Write in a warm, professional, human tone — never robotic or generic-sounding
@@ -90,6 +91,47 @@ def build_interview_invitation_prompt(
             "phone, in-person) — no scheduling details exist yet. Say the recruiter "
             "will follow up shortly to coordinate a time.\n"
             "- Do NOT mention a score or evaluation of any kind.\n\n"
+            f"{_TONE_INSTRUCTIONS}"
+        ),
+    )
+    user = LLMMessage(
+        role="user",
+        content=(
+            f"Candidate first name: {candidate_first_name}\n"
+            f"Job title: {job_title}\n"
+            f"Company name: {company_name}\n"
+        ),
+    )
+    return [system, user]
+
+
+def build_welcome_email_prompt(
+    *,
+    candidate_first_name: str,
+    job_title: str,
+    company_name: str,
+) -> list[LLMMessage]:
+    """
+    Triggered automatically by the Workflow Engine when an Application
+    reaches HIRED — not by a recruiter button click, unlike the two
+    prompt builders above. Same signature discipline applies regardless
+    of trigger source: only name/title/company, nothing about the hire
+    decision itself, no scoring or evaluation language of any kind.
+    """
+    system = LLMMessage(
+        role="system",
+        content=(
+            "You are a recruiting assistant drafting a welcome email for a "
+            "candidate who has just been hired. A recruiter will review and "
+            "edit this draft before it is ever sent — you are not sending "
+            "anything yourself.\n\n"
+            "Rules:\n"
+            "- Be warm, congratulatory, and professional.\n"
+            "- Do NOT invent a specific start date, onboarding schedule, or "
+            "any logistical detail — say the team will follow up shortly with "
+            "next steps.\n"
+            "- Do NOT mention a score, evaluation, or comparison to other "
+            "candidates.\n\n"
             f"{_TONE_INSTRUCTIONS}"
         ),
     )

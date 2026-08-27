@@ -1,66 +1,55 @@
 """
 Workflow Engine runner.
 
-Owns sequencing, not business rules. This class is intentionally "dumb":
-it walks `workflow.steps` in order, resolves the agent for any step that
-requires one via the Agent Registry, and calls `workflow.execute_step`.
-It has no knowledge of hiring, onboarding, or any specific business
-process — that knowledge lives entirely inside each Workflow subclass.
+Owns sequencing only — walks `workflow.steps` in order, calls each
+step's bound `action` with the running state dict, merges the result
+back into state. Nothing else. It does not know about hiring,
+onboarding, Agents, Services, Compass, the database, or any specific
+business process — all of that lives in the concrete `Workflow`
+subclass and whatever it was constructed with.
+
+No retry logic: the first step to raise stops the run immediately.
+Steps already completed stay recorded in `result.completed_steps` (and
+`result.failed_step` names the one that didn't) — this is what makes
+partial-completion genuinely observable rather than an all-or-nothing
+black box, per Slice 7's explicit requirement.
 """
 
 from typing import Any
 
 import structlog
 
-from app.agents.base import AgentContext
-from app.agents.registry import AgentRegistry, agent_registry
 from app.workflow_engine.workflow import Workflow, WorkflowRunResult
 
 logger = structlog.get_logger(__name__)
 
 
 class WorkflowEngine:
-    def __init__(self, registry: AgentRegistry = agent_registry) -> None:
-        self._agent_registry = registry
-
     async def run(
         self,
         workflow: Workflow,
         *,
-        company_id: str,
-        user_id: str,
         initial_state: dict[str, Any] | None = None,
     ) -> WorkflowRunResult:
         state: dict[str, Any] = dict(initial_state or {})
         result = WorkflowRunResult(workflow_name=workflow.name, output=state)
 
-        logger.info("workflow_started", workflow=workflow.name, user_id=user_id)
+        logger.info("workflow_started", workflow=workflow.name)
 
         for step in workflow.steps:
-            agent_output: dict[str, Any] | None = None
-
-            if step.requires_agent:
-                assert step.agent_capability is not None  # enforced in WorkflowStep
-                agent = self._agent_registry.get(step.agent_capability)
-                agent_result = await agent.run(
-                    AgentContext(company_id=company_id, user_id=user_id, payload=state)
-                )
-                agent_output = agent_result.output
-                logger.info(
-                    "workflow_step_agent_invoked",
+            try:
+                step_output = await step.action(state)
+            except Exception as exc:  # noqa: BLE001 — deliberately broad: a
+                # workflow step failing must never propagate past the
+                # engine; failure is reported in the result, not raised.
+                logger.error(
+                    "workflow_step_failed",
                     workflow=workflow.name,
                     step=step.name,
-                    capability=step.agent_capability,
-                )
-
-            try:
-                step_output = await workflow.execute_step(step, state, agent_output)
-            except Exception as exc:  # noqa: BLE001 — deliberately broad: workflow steps
-                # must never take down the request; failure is reported in the result.
-                logger.error(
-                    "workflow_step_failed", workflow=workflow.name, step=step.name, error=str(exc)
+                    error=str(exc),
                 )
                 result.success = False
+                result.failed_step = step.name
                 result.error = f"Step '{step.name}' failed: {exc}"
                 return result
 

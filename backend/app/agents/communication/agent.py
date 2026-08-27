@@ -31,9 +31,11 @@ from dataclasses import dataclass
 
 from app.agents.communication.prompts import (
     INTERVIEW_INVITATION_PROMPT_VERSION,
+    ONBOARDING_WELCOME_PROMPT_VERSION,
     REJECTION_PROMPT_VERSION,
     build_interview_invitation_prompt,
     build_rejection_prompt,
+    build_welcome_email_prompt,
 )
 from app.agents.communication.schemas import DraftEmailSchema
 from app.agents.shared.structured_output import complete_structured_with_one_retry
@@ -88,6 +90,28 @@ class CommunicationAgent:
             llm_provider=self._provider_name(),
             llm_model=self._model_name(),
             prompt_version=INTERVIEW_INVITATION_PROMPT_VERSION,
+        )
+
+    async def draft_welcome_email(
+        self, *, candidate_first_name: str, job_title: str, company_name: str
+    ) -> DraftOutcome:
+        """
+        Called by the Workflow Engine's hire workflow (via
+        CommunicationService.generate_system_draft) — not by a recruiter
+        button click. See build_welcome_email_prompt's docstring: the
+        content-safety signature discipline is identical either way.
+        """
+        messages = build_welcome_email_prompt(
+            candidate_first_name=candidate_first_name,
+            job_title=job_title,
+            company_name=company_name,
+        )
+        schema = await complete_structured_with_one_retry(self._llm, messages, DraftEmailSchema)
+        return DraftOutcome(
+            schema=schema,
+            llm_provider=self._provider_name(),
+            llm_model=self._model_name(),
+            prompt_version=ONBOARDING_WELCOME_PROMPT_VERSION,
         )
 
     def _provider_name(self) -> str:

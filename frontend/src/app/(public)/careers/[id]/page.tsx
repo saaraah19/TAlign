@@ -18,7 +18,7 @@ export default function PublicJobDetailPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl p-8">
+    <main className="mx-auto max-w-2xl p-6 sm:p-8">
       <h1 className="text-xl font-semibold">{job.title}</h1>
       <p className="mt-1 text-sm text-gray-500">
         {EMPLOYMENT_TYPE_LABELS[job.employment_type]}

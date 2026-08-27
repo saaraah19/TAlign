@@ -20,7 +20,7 @@ export function JobList() {
         <li key={job.id}>
           <Link
             href={`/jobs/${job.id}`}
-            className="flex items-center justify-between px-4 py-3 text-sm hover:bg-gray-50"
+            className="flex flex-col gap-1 px-4 py-3 text-sm hover:bg-gray-50 sm:flex-row sm:items-center sm:justify-between sm:gap-0"
           >
             <div>
               <p className="font-medium text-gray-900">{job.title}</p>

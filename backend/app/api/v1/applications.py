@@ -47,6 +47,9 @@ from app.schemas.resume_analysis import (
 )
 from app.services.application_service import ApplicationService
 from app.services.resume_analysis_service import ResumeAnalysisService, run_resume_analysis_task
+from app.schemas.employee import HireWorkflowStatusRead
+from app.workflow_engine.status import get_hire_workflow_status
+from app.workflow_engine.tasks import run_hire_workflow_task
 
 router = APIRouter()
 
@@ -194,6 +197,7 @@ async def get_application(
 async def transition_application_status(
     application_id: uuid.UUID,
     payload: ApplicationStatusTransitionRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_roles(*_PIPELINE_WRITE_ROLES)),
 ) -> ApplicationWithCandidate:
@@ -202,6 +206,12 @@ async def transition_application_status(
         target_status=payload.target_status,
         acting_user=current_user,
     )
+    if application.status == ApplicationStatus.HIRED.value:
+        # Same pattern as attach_resume_to_application's resume-analysis
+        # trigger above: direct BackgroundTasks scheduling, no event bus.
+        # Slice 7's Workflow Engine — see
+        # app/workflow_engine/tasks.py:run_hire_workflow_task.
+        background_tasks.add_task(run_hire_workflow_task, application.id)
     # Re-fetch with relations for the response, same reasoning as apply().
     full = await ApplicationService(db).get_application_for_company(
         application_id=application.id, acting_user=current_user
@@ -209,7 +219,35 @@ async def transition_application_status(
     return ApplicationWithCandidate.model_validate(full)
 
 
-# --- Recruiter-facing resume analysis (Slice 4) ---
+# --- Slice 7: Workflow Engine (hire workflow status, recruiter-facing) ---
+
+
+@router.get("/{application_id}/hire-workflow", response_model=HireWorkflowStatusRead)
+async def get_hire_workflow_status_endpoint(
+    application_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(*_PIPELINE_READ_ROLES)),
+) -> HireWorkflowStatusRead:
+    """
+    Lets the frontend show whether HireCandidateWorkflow ran for this
+    Application, its outcome (SUCCESS/FAILED/SKIPPED, completed steps,
+    which one failed if any), and the Employee + onboarding checklist it
+    created. Returns all-null/empty fields if the workflow hasn't run
+    yet (e.g. the Application isn't HIRED, or the background task
+    hasn't finished) rather than a 404 — "not run yet" is a normal,
+    expected state here, not an error.
+    """
+    # get_application_for_company both scopes to the acting user's
+    # company AND raises NotFoundError for a cross-company/nonexistent
+    # id — this is what makes get_hire_workflow_status's internal
+    # company_id assertion safe to rely on.
+    application = await ApplicationService(db).get_application_for_company(
+        application_id=application_id, acting_user=current_user
+    )
+    status = await get_hire_workflow_status(
+        db, application_id=application_id, company_id=application.company_id
+    )
+    return HireWorkflowStatusRead.from_status(status)
 
 
 @router.get("/{application_id}/analysis", response_model=ResumeAnalysisRead)

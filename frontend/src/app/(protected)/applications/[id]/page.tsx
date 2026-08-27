@@ -1,29 +1,21 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useParams } from "next/navigation";
 import {
   AnalysisProgressIndicator,
   ApplicationStatusBadge,
   ResumeAttachPanel,
   useMyApplications,
 } from "@/features/applications";
-import { useAuth } from "@/features/auth";
 import { CompassAsk } from "@/features/compass";
 
 export default function MyApplicationDetailPage() {
   const params = useParams<{ id: string }>();
-  const { user, isLoading: authLoading } = useAuth();
-  const router = useRouter();
   // Reuse the list query (already cached from the /applications page in
   // the common case) rather than adding a third fetch shape for one field set.
   const { data, isLoading } = useMyApplications();
 
-  useEffect(() => {
-    if (!authLoading && !user) router.replace("/login");
-  }, [authLoading, user, router]);
-
-  if (authLoading || isLoading || !user) {
+  if (isLoading) {
     return <main className="p-8 text-sm text-gray-500">Loading…</main>;
   }
 
@@ -33,8 +25,8 @@ export default function MyApplicationDetailPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl p-8">
-      <div className="flex items-center justify-between">
+    <main className="mx-auto max-w-2xl p-6 sm:p-8">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl font-semibold">{application.job.title}</h1>
         <ApplicationStatusBadge status={application.status} />
       </div>

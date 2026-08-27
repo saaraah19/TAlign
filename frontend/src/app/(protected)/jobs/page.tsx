@@ -1,25 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { useAuth } from "@/features/auth";
 import { JobList } from "@/features/jobs";
 
 export default function JobsPage() {
-  const { user, isLoading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!isLoading && !user) router.replace("/login");
-  }, [isLoading, user, router]);
-
-  if (isLoading || !user) return <main className="p-8 text-sm text-gray-500">Loading…</main>;
+  const { user } = useAuth();
+  if (!user) return null; // guaranteed non-null by (protected)/layout.tsx
 
   const canCreate = user.roles.includes("admin") || user.roles.includes("recruiter");
 
   return (
-    <main className="mx-auto max-w-3xl p-8">
+    <main className="mx-auto max-w-3xl p-6 sm:p-8">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Jobs</h1>
         {canCreate && (

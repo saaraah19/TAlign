@@ -39,7 +39,7 @@ export default function ApplyToJobPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl p-8">
+    <main className="mx-auto max-w-2xl p-6 sm:p-8">
       <Link href={`/careers/${job.id}`} className="text-xs text-gray-400 underline">
         ← Back to job
       </Link>

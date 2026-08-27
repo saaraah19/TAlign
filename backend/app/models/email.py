@@ -15,9 +15,11 @@ lifecycle states only, deliberately simple for the MVP:
               edited in place; only the SENT state is history).
 
 `email_type` distinguishes which template/prompt produced it —
-currently REJECTION and INTERVIEW_INVITATION only (see
-docs/05_slice5_communication_agent.md for the two-type MVP scope
-decision; follow-up/reminder/offer/onboarding are deferred).
+REJECTION and INTERVIEW_INVITATION from Slice 5 (see
+docs/05_slice5_communication_agent.md for the original two-type MVP
+scope decision), plus ONBOARDING_WELCOME added in Slice 7 for the hire
+workflow (see app/workflow_engine/workflows/hire_candidate.py).
+follow-up/reminder/offer emails remain deferred.
 
 No real email sending happens anywhere in this codebase (no SMTP/Gmail
 integration) — "send" here means the recruiter has copied/sent it
@@ -43,6 +45,7 @@ if TYPE_CHECKING:
 class EmailType(StrEnum):
     REJECTION = "rejection"
     INTERVIEW_INVITATION = "interview_invitation"
+    ONBOARDING_WELCOME = "onboarding_welcome"
 
 
 class EmailStatus(StrEnum):
@@ -54,7 +57,7 @@ class Email(Base):
     __tablename__ = "emails"
     __table_args__ = (
         CheckConstraint(
-            "email_type IN ('rejection', 'interview_invitation')",
+            "email_type IN ('rejection', 'interview_invitation', 'onboarding_welcome')",
             name="ck_emails_type_valid",
         ),
         CheckConstraint("status IN ('draft', 'sent')", name="ck_emails_status_valid"),

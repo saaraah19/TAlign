@@ -68,7 +68,7 @@ export function EmailDraftCard({
 
   return (
     <div className="rounded-lg border border-gray-200 p-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
           {EMAIL_TYPE_LABELS[email.email_type]}
         </span>
