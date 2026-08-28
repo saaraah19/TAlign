@@ -12,6 +12,7 @@ import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.application import Application
 from app.models.resume_analysis import AnalysisStatus, ResumeAnalysis
@@ -76,3 +77,30 @@ class ResumeAnalysisRepository:
             .where(ResumeAnalysis.id == analysis_id, Application.company_id == company_id)
         )
         return result.scalar_one_or_none()
+
+    async def list_recent_completed_for_company(
+        self, company_id: uuid.UUID, *, limit: int = 10
+    ) -> list[ResumeAnalysis]:
+        """
+        Backs the Dashboard's "recent AI analyses" section — same
+        join-through-Application scoping as get_by_id_for_company above.
+        Eager-loads `application` (and, transitively via that
+        relationship, enough to reach candidate/job) since the Dashboard
+        needs to display candidate name and job title, not just the
+        score.
+        """
+        result = await self._db.execute(
+            select(ResumeAnalysis)
+            .join(Application, Application.id == ResumeAnalysis.application_id)
+            .options(
+                selectinload(ResumeAnalysis.application).selectinload(Application.candidate),
+                selectinload(ResumeAnalysis.application).selectinload(Application.job),
+            )
+            .where(
+                Application.company_id == company_id,
+                ResumeAnalysis.status == AnalysisStatus.COMPLETED.value,
+            )
+            .order_by(ResumeAnalysis.analyzed_at.desc())
+            .limit(limit)
+        )
+        return list(result.scalars().all())

@@ -205,6 +205,22 @@ class EmailAlreadySentError(ConflictError):
     pass
 
 
+class ApplicationInTerminalStatusError(ConflictError):
+    """
+    Raised when attempting to manually draft a rejection or interview-
+    invitation email for an Application that has already reached a
+    terminal status (HIRED or REJECTED) — see
+    CommunicationService.generate_draft. Drafting either of those once
+    the outcome is already decided is nonsensical: a rejection email
+    for someone already hired, or an interview invitation for someone
+    already rejected. Deliberately does NOT apply to
+    generate_system_draft (the Workflow Engine's welcome-email path),
+    which is only ever called precisely because an Application just
+    became HIRED — that's the one case where HIRED is the expected,
+    correct state, not a reason to block.
+    """
+
+
 # --- Knowledge Agent exceptions ---
 
 

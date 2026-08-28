@@ -19,7 +19,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.application import Application
+from app.models.application import Application, ApplicationStatus
 
 
 class ApplicationRepository:
@@ -52,6 +52,30 @@ class ApplicationRepository:
         get_by_id_for_candidate / get_by_id_for_company instead.
         """
         return await self._db.get(Application, application_id)
+
+    async def list_awaiting_review_for_company(
+        self, company_id: uuid.UUID, *, limit: int = 10
+    ) -> list[Application]:
+        """
+        Backs the Dashboard's "applications awaiting review" section —
+        APPLIED or SCREENING, the two statuses that mean "sitting in the
+        recruiter's queue, not yet acted on." A dedicated single query
+        (status IN (...)) rather than calling list_for_company twice
+        (once per status) — simpler and one round-trip instead of two.
+        """
+        result = await self._db.execute(
+            select(Application)
+            .options(selectinload(Application.job), selectinload(Application.candidate))
+            .where(
+                Application.company_id == company_id,
+                Application.status.in_(
+                    [ApplicationStatus.APPLIED.value, ApplicationStatus.SCREENING.value]
+                ),
+            )
+            .order_by(Application.created_at.asc())
+            .limit(limit)
+        )
+        return list(result.scalars().all())
 
     async def get_by_id_with_relations(self, application_id: uuid.UUID) -> Application | None:
         """

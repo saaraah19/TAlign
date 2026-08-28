@@ -78,3 +78,16 @@ class EmailRepository:
             .order_by(Email.created_at.desc())
         )
         return list(result.scalars().all())
+
+    async def list_recent_drafts_for_company(
+        self, company_id: uuid.UUID, *, limit: int = 10
+    ) -> list[Email]:
+        """Backs the Dashboard's "pending recruiter actions" section — draft
+        emails (of any type) still awaiting recruiter review/send."""
+        result = await self._db.execute(
+            select(Email)
+            .where(Email.company_id == company_id, Email.status == EmailStatus.DRAFT.value)
+            .order_by(Email.created_at.desc())
+            .limit(limit)
+        )
+        return list(result.scalars().all())

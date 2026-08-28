@@ -13,6 +13,7 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.application import Application
 from app.models.job import Job, JobStatus
 
 
@@ -83,3 +84,27 @@ class JobRepository:
     async def delete(self, job: Job) -> None:
         await self._db.delete(job)
         await self._db.flush()
+
+    async def list_low_applicant_open_jobs(
+        self, company_id: uuid.UUID, *, threshold: int, limit: int = 10
+    ) -> list[tuple[Job, int]]:
+        """
+        Open jobs for this company with fewer than `threshold`
+        applications, ordered by applicant count ascending (the ones
+        needing the most attention first) — backs the Dashboard's
+        "jobs with low applicant volume" section. A LEFT JOIN (not
+        INNER) is load-bearing: a job with zero applications must still
+        appear, which an INNER JOIN would silently drop.
+        """
+        applicant_count = func.count(Application.id).label("applicant_count")
+        query = (
+            select(Job, applicant_count)
+            .outerjoin(Application, Application.job_id == Job.id)
+            .where(Job.company_id == company_id, Job.status == JobStatus.OPEN.value)
+            .group_by(Job.id)
+            .having(applicant_count < threshold)
+            .order_by(applicant_count.asc())
+            .limit(limit)
+        )
+        result = await self._db.execute(query)
+        return [(job, count) for job, count in result.all()]

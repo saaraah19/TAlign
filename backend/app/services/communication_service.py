@@ -35,8 +35,13 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.communication.agent import CommunicationAgent, DraftOutcome
-from app.core.exceptions import AuthorizationError, EmailAlreadySentError, NotFoundError
-from app.models.application import Application
+from app.core.exceptions import (
+    ApplicationInTerminalStatusError,
+    AuthorizationError,
+    EmailAlreadySentError,
+    NotFoundError,
+)
+from app.models.application import Application, ApplicationStatus
 from app.models.email import Email, EmailStatus
 from app.models.user import User
 from app.repositories.application_repository import ApplicationRepository
@@ -78,6 +83,7 @@ class CommunicationService:
         )
         if application is None:
             raise NotFoundError("Application not found.")
+        self._assert_not_terminal(application)
 
         existing = await self._emails.get_current_draft(application_id, email_type)
         if existing is not None:
@@ -253,6 +259,22 @@ class CommunicationService:
         if email.status != EmailStatus.DRAFT.value:
             raise EmailAlreadySentError(
                 "This email has already been sent and can no longer be edited or regenerated."
+            )
+
+    @staticmethod
+    def _assert_not_terminal(application: Application) -> None:
+        """
+        Service-layer half of the terminal-status guard — the UI hides
+        the "Draft rejection"/"Draft interview invitation" buttons once
+        an Application reaches HIRED or REJECTED (see
+        CommunicationPanel), but a service should never trust that its
+        caller enforced its own precondition, same two-layer discipline
+        as everywhere else in this codebase.
+        """
+        if application.status in (ApplicationStatus.HIRED.value, ApplicationStatus.REJECTED.value):
+            raise ApplicationInTerminalStatusError(
+                f"Cannot draft an email for an application that is already "
+                f"'{application.status}'."
             )
 
     @staticmethod

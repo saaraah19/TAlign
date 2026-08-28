@@ -12,6 +12,7 @@ from app.api.v1.applications import router as applications_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.communication import router as communication_router
 from app.api.v1.compass import router as compass_router
+from app.api.v1.dashboard import router as dashboard_router
 from app.api.v1.health import router as health_router
 from app.api.v1.jobs import router as jobs_router
 from app.api.v1.knowledge import router as knowledge_router
@@ -30,3 +31,4 @@ api_v1_router.include_router(
 api_v1_router.include_router(resumes_router, prefix="/resumes", tags=["resumes"])
 api_v1_router.include_router(compass_router, prefix="/compass", tags=["compass"])
 api_v1_router.include_router(knowledge_router, prefix="/knowledge", tags=["knowledge"])
+api_v1_router.include_router(dashboard_router, prefix="/dashboard", tags=["dashboard"])
