@@ -35,6 +35,7 @@ from app.models.workflow_run import WorkflowRun, WorkflowRunStatus
 from app.repositories.application_repository import ApplicationRepository
 from app.repositories.company_repository import CompanyRepository
 from app.repositories.workflow_run_repository import WorkflowRunRepository
+from app.services.auth_service import AuthService
 from app.services.communication_service import CommunicationService
 from app.services.employee_service import EmployeeService
 from app.workflow_engine.context import HireWorkflowContext
@@ -44,7 +45,12 @@ from app.workflow_engine.workflows.hire_candidate import HireCandidateWorkflow
 
 logger = structlog.get_logger(__name__)
 
-_CREATED_FLAG_KEYS = ("employee_created", "onboarding_created", "welcome_email_created")
+_CREATED_FLAG_KEYS = (
+    "employee_created",
+    "onboarding_created",
+    "welcome_email_created",
+    "portal_access_granted",
+)
 
 
 class HireWorkflowRunner:
@@ -68,6 +74,7 @@ class HireWorkflowRunner:
         workflow_run_repository: WorkflowRunRepository | None = None,
         employee_service: EmployeeService | None = None,
         communication_service: CommunicationService | None = None,
+        auth_service: AuthService | None = None,
         engine: WorkflowEngine | None = None,
     ) -> None:
         self._db = db
@@ -76,6 +83,7 @@ class HireWorkflowRunner:
         self._workflow_runs = workflow_run_repository or WorkflowRunRepository(db)
         self._employee_service = employee_service or EmployeeService(db)
         self._communication_service = communication_service or CommunicationService(db)
+        self._auth_service = auth_service or AuthService(db)
         self._engine = engine or WorkflowEngine()
 
     async def run(self, application_id: uuid.UUID) -> WorkflowRun | None:
@@ -110,6 +118,7 @@ class HireWorkflowRunner:
             application_id=application.id,
             company_id=application.company_id,
             company_name=company.name,
+            candidate_id=application.candidate_id,
             candidate_first_name=application.candidate.first_name,
             candidate_last_name=application.candidate.last_name,
             candidate_email=application.candidate.email,
@@ -121,6 +130,7 @@ class HireWorkflowRunner:
             context=context,
             employee_service=self._employee_service,
             communication_service=self._communication_service,
+            auth_service=self._auth_service,
         )
         result = await self._engine.run(workflow)
 

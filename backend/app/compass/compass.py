@@ -149,19 +149,32 @@ class Compass:
     @staticmethod
     def _resolve_capability_for_role(role: Role, workspace_id: str | None) -> str | None:
         """
-        V1 heuristic, now with one real disambiguation: internal roles
-        (ADMIN/RECRUITER/HIRING_MANAGER) can reach two capabilities —
-        `workspace_id` presence is the signal for which one, since it's
-        a structural fact Compass already has, not a guess at intent. A
-        request scoped to a specific application means "explain_analysis";
-        a request with no workspace in view means a general company
-        question, "knowledge_query". Still not real (LLM-based) intent
-        classification — see app/compass/intent.py's docstring for when
-        that becomes worth building (once a role's capabilities can't be
-        told apart by structural context alone).
+        V1 heuristic, now with two real disambiguations. First:
+        internal roles (ADMIN/RECRUITER/HIRING_MANAGER) can reach two
+        capabilities — `workspace_id` presence is the signal for which
+        one, since it's a structural fact Compass already has, not a
+        guess at intent. A request scoped to a specific application
+        means "explain_analysis"; a request with no workspace in view
+        means a general company question, "knowledge_query". Second
+        (added for Sub-slice 9c): Role.EMPLOYEE always resolves to
+        "knowledge_query" regardless of `workspace_id` — an employee
+        has no legitimate reason to reach "explain_analysis" (that's
+        recruiter-facing candidate-evaluation content), so this is
+        branched explicitly rather than folded into the internal-roles
+        tuple above, where a stray workspace_id would otherwise route
+        them at a capability their role was never granted (the
+        Capability Registry would still block it — see the "defense in
+        depth" comment in handle_message — but there's no reason to
+        rely on that when the correct capability is known outright).
+        Still not real (LLM-based) intent classification — see
+        app/compass/intent.py's docstring for when that becomes worth
+        building (once a role's capabilities can't be told apart by
+        structural context alone).
         """
         if role is Role.CANDIDATE:
             return "application_status"
+        if role is Role.EMPLOYEE:
+            return "knowledge_query"
         if role in (Role.ADMIN, Role.RECRUITER, Role.HIRING_MANAGER):
             return "explain_analysis" if workspace_id is not None else "knowledge_query"
         return None

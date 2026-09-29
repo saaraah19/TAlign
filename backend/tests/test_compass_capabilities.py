@@ -56,9 +56,16 @@ def test_recruiter_cannot_access_application_status() -> None:
     assert compass_capability_registry.get_if_allowed("application_status", Role.RECRUITER) is None
 
 
-def test_employee_role_has_no_registered_capabilities_in_v1() -> None:
+def test_employee_can_access_knowledge_query_only() -> None:
+    """
+    Added for Sub-slice 9c: the Employee Portal now gives Role.EMPLOYEE
+    an actual UI path to knowledge_query (the Knowledge page). Never
+    explain_analysis — that's recruiter-facing candidate-evaluation
+    content an employee has no legitimate reason to reach.
+    """
     available = compass_capability_registry.available_for_role(Role.EMPLOYEE)
-    assert available == []
+    names = {c.name for c in available}
+    assert names == {"knowledge_query"}
 
 
 def test_compass_resolves_candidate_to_application_status() -> None:
@@ -81,6 +88,15 @@ def test_compass_resolves_internal_roles_without_workspace_to_knowledge_query() 
         assert Compass._resolve_capability_for_role(role, None) == "knowledge_query"
 
 
-def test_compass_resolves_employee_to_nothing_in_v1() -> None:
-    assert Compass._resolve_capability_for_role(Role.EMPLOYEE, None) is None
-    assert Compass._resolve_capability_for_role(Role.EMPLOYEE, "some-workspace-id") is None
+def test_compass_resolves_employee_to_knowledge_query_regardless_of_workspace() -> None:
+    """
+    Added for Sub-slice 9c: unlike the internal (ADMIN/RECRUITER/
+    HIRING_MANAGER) roles above, an employee always resolves to
+    knowledge_query even if a workspace_id is somehow present — they
+    should never be routed toward explain_analysis.
+    """
+    assert Compass._resolve_capability_for_role(Role.EMPLOYEE, None) == "knowledge_query"
+    assert (
+        Compass._resolve_capability_for_role(Role.EMPLOYEE, "some-workspace-id")
+        == "knowledge_query"
+    )

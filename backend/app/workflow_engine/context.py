@@ -27,6 +27,10 @@ class HireWorkflowContext:
     application_id: uuid.UUID
     company_id: uuid.UUID
     company_name: str
+    #: The candidate's existing User account id — needed by the
+    #: portal-access step to convert THIS account in place rather than
+    #: creating a new one. See AuthService.convert_candidate_to_employee.
+    candidate_id: uuid.UUID
     candidate_first_name: str
     candidate_last_name: str
     candidate_email: str

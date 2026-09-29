@@ -145,8 +145,29 @@ async def test_candidate_role_never_routes_to_knowledge_query() -> None:
     assert isinstance(response, CompassResponse)
 
 
-async def test_employee_role_gets_no_capability_at_all() -> None:
+async def test_employee_role_routes_to_knowledge_query() -> None:
+    """
+    Added for Sub-slice 9c: an employee asking Compass a general
+    question (no workspace in view — employees never have an
+    application-workspace anyway) now reaches knowledge_query, same as
+    the internal recruiting roles' no-workspace case above.
+    """
     knowledge_service = AsyncMock()
+    knowledge_service.ask.return_value = KnowledgeQueryResult(
+        answer="You have 18 leave days remaining this year.",
+        citations=[
+            Citation(
+                document_id=uuid.uuid4(),
+                document_title="Leave Policy",
+                chunk_id=uuid.uuid4(),
+                excerpt="Employees accrue 25 days of annual leave per year.",
+            )
+        ],
+        grounded=True,
+        confidence=RetrievalConfidence.HIGH,
+        confidence_algorithm_version="similarity_bands_v1",
+    )
+
     db = AsyncMock()
     compass = Compass(db, knowledge_query_service=knowledge_service)
 
@@ -170,5 +191,7 @@ async def test_employee_role_gets_no_capability_at_all() -> None:
 
     response = await compass.handle_message("What's my leave balance?", context)
 
-    assert response.capability_used is None
-    knowledge_service.ask.assert_not_awaited()
+    assert response.capability_used == "knowledge_query"
+    knowledge_service.ask.assert_awaited_once()
+    call_kwargs = knowledge_service.ask.await_args.kwargs
+    assert call_kwargs["acting_user"] is employee

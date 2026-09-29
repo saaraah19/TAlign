@@ -19,6 +19,7 @@ def _make_context(**overrides: object) -> HireWorkflowContext:
         "application_id": uuid.uuid4(),
         "company_id": uuid.uuid4(),
         "company_name": "Talign",
+        "candidate_id": uuid.uuid4(),
         "candidate_first_name": "Ahmed",
         "candidate_last_name": "Benali",
         "candidate_email": "ahmed@example.com",
@@ -109,3 +110,58 @@ async def test_create_onboarding_checklist_is_idempotent_for_the_same_employee()
     assert created is False
     assert tasks == existing
     onboarding_repo.create_many.assert_not_called()
+
+
+# --- link_user_account ---
+
+
+async def test_link_user_account_sets_user_id_and_reports_linked() -> None:
+    employee_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    employee = Employee(
+        id=employee_id,
+        company_id=uuid.uuid4(),
+        application_id=uuid.uuid4(),
+        first_name="Ahmed",
+        last_name="Benali",
+        email="ahmed@example.com",
+        job_title="Backend Engineer",
+        hire_date=date(2026, 8, 20),
+        user_id=None,
+    )
+    employee_repo = AsyncMock()
+    employee_repo.get_by_id.return_value = employee
+    db = AsyncMock()
+    service = EmployeeService(db, employee_repository=employee_repo)
+
+    result, linked = await service.link_user_account(employee_id, user_id)
+
+    assert linked is True
+    assert result.user_id == user_id
+    db.commit.assert_awaited_once()
+
+
+async def test_link_user_account_is_idempotent_when_already_linked() -> None:
+    employee_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    employee = Employee(
+        id=employee_id,
+        company_id=uuid.uuid4(),
+        application_id=uuid.uuid4(),
+        first_name="Ahmed",
+        last_name="Benali",
+        email="ahmed@example.com",
+        job_title="Backend Engineer",
+        hire_date=date(2026, 8, 20),
+        user_id=user_id,
+    )
+    employee_repo = AsyncMock()
+    employee_repo.get_by_id.return_value = employee
+    db = AsyncMock()
+    service = EmployeeService(db, employee_repository=employee_repo)
+
+    result, linked = await service.link_user_account(employee_id, user_id)
+
+    assert linked is False
+    assert result is employee
+    db.commit.assert_not_awaited()

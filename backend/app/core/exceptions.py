@@ -221,6 +221,45 @@ class ApplicationInTerminalStatusError(ConflictError):
     """
 
 
+# --- Leave Request exceptions (Sub-slice 9c) ---
+
+
+class InvalidDateRangeError(DomainValidationError):
+    """
+    Raised when a leave request's end_date is before its start_date.
+    Mirrors the DB-level ck_leave_requests_date_range_valid constraint
+    (same pattern as Job's ck_jobs_salary_range_valid) — this is the
+    service-layer half, checked before insert so the failure is a clean
+    domain error rather than a raw IntegrityError.
+    """
+
+    pass
+
+
+class LeaveRequestOverlapError(ConflictError):
+    """
+    Raised when a new leave request's date range overlaps an existing
+    PENDING or APPROVED request for the same employee. Not mirrored by a
+    DB constraint — a range-overlap condition spans multiple rows, which
+    a plain CHECK can't express (same reasoning as DuplicateApplicationError
+    not being a CHECK constraint either). A CANCELLED or REJECTED request
+    never triggers this.
+    """
+
+    pass
+
+
+class InvalidLeaveRequestTransitionError(DomainValidationError):
+    """
+    Raised when a requested LeaveRequest status transition isn't in the
+    allowed graph. PENDING is the only non-terminal state; APPROVED,
+    REJECTED, and CANCELLED all have no outgoing transitions. See
+    LeaveRequestService._validate_transition.
+    """
+
+    pass
+
+
 # --- Knowledge Agent exceptions ---
 
 

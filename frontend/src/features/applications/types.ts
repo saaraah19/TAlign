@@ -30,6 +30,20 @@ export const APPLICATION_CAN_REJECT: Record<ApplicationStatus, boolean> = {
   rejected: false,
 };
 
+// Mirrors CommunicationService._assert_not_terminal exactly — used to
+// hide the "Draft rejection"/"Draft interview invitation" buttons once
+// an application's outcome is already decided. The backend enforces
+// this too (ApplicationInTerminalStatusError); hiding the buttons here
+// is the UI half of the same two-layer guard, not the only guard.
+export const APPLICATION_IS_TERMINAL: Record<ApplicationStatus, boolean> = {
+  applied: false,
+  screening: false,
+  interview: false,
+  offer: false,
+  hired: true,
+  rejected: true,
+};
+
 export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
   applied: "Applied",
   screening: "Screening",

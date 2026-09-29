@@ -9,7 +9,7 @@ already-closed async session.
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -31,6 +31,19 @@ class UserRepository:
 
     async def add_role(self, user_id: uuid.UUID, role_id: uuid.UUID) -> None:
         self._db.add(UserRole(user_id=user_id, role_id=role_id))
+        await self._db.flush()
+
+    async def remove_role(self, user_id: uuid.UUID, role_id: uuid.UUID) -> None:
+        """
+        Added for the candidate-to-employee account conversion (see
+        AuthService.convert_candidate_to_employee): a converted account
+        keeps exactly the roles that match its new account_type, so the
+        stale `candidate` role is removed rather than left dangling
+        alongside the new `employee` one.
+        """
+        await self._db.execute(
+            delete(UserRole).where(UserRole.user_id == user_id, UserRole.role_id == role_id)
+        )
         await self._db.flush()
 
     async def get_by_id(self, user_id: uuid.UUID) -> User | None:

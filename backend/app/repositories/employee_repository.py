@@ -34,3 +34,16 @@ class EmployeeRepository:
             select(Employee).where(Employee.application_id == application_id)
         )
         return result.scalar_one_or_none()
+
+    async def get_by_user_id(self, user_id: uuid.UUID) -> Employee | None:
+        """
+        Resolves the Employee row for a logged-in Role.EMPLOYEE user —
+        added for Sub-slice 9c (Leave Management). Added here rather
+        than assuming a shape from an unseen 9a-2 implementation: this
+        is the natural extension of the existing get_by_application_id
+        idempotency-lookup pattern, applied to the other nullable unique
+        pointer on Employee (see app/models/employee.py's docstring on
+        `user_id`, populated once a portal login is provisioned).
+        """
+        result = await self._db.execute(select(Employee).where(Employee.user_id == user_id))
+        return result.scalar_one_or_none()

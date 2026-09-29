@@ -7,10 +7,12 @@ app/api/v1/applications.py's transition endpoint via
 app/workflow_engine/tasks.py's run_hire_workflow_task — see that
 module for the trigger mechanism and WorkflowRun persistence).
 
-Three deterministic steps, in order:
+Four deterministic steps, in order:
   1. create_employee_record    -> EmployeeService.create_employee
   2. create_onboarding_checklist -> EmployeeService.create_onboarding_checklist
   3. draft_welcome_email       -> CommunicationService.generate_system_draft
+  4. grant_portal_access       -> AuthService.convert_candidate_to_employee
+                                   + EmployeeService.link_user_account
 
 No LLM reasoning happens in this file. Step 3 delegates entirely to
 CommunicationService (which delegates to CommunicationAgent) — this
@@ -19,17 +21,29 @@ email content gets generated. Same "Workflow Engine invokes agents but
 never reasons itself" rule the Slice 7 scope description states
 explicitly.
 
+Step 4 is what actually gives a hired person a working employee login.
+It does NOT create a new account — a candidate already IS a User row
+(account_type=CANDIDATE), so there's nothing to create or link across
+two identities. It flips that same row's account_type/company_id/role
+in place (see AuthService.convert_candidate_to_employee's docstring for
+why), then points the freshly-created Employee row at it via
+`Employee.user_id` (EmployeeService.link_user_account). Same login,
+same password the candidate already had — nothing to relay, generate,
+or hand over.
+
 Idempotent as a whole because every step is independently idempotent
-(see EmployeeService / CommunicationService docstrings): triggering
-this workflow twice for the same Application never creates duplicate
-Employee/OnboardingTask/Email rows. The second run's `state` reports
-`created=False` for every step, which is what lets
-run_hire_workflow_task tell a genuine duplicate trigger (SKIPPED) apart
-from real work (SUCCESS).
+(see EmployeeService / AuthService / CommunicationService docstrings):
+triggering this workflow twice for the same Application never creates
+duplicate Employee/OnboardingTask/Email rows, and never re-converts an
+already-converted account. The second run's `state` reports
+`created=False` (or `converted=False` / `linked=False`) for every step,
+which is what lets run_hire_workflow_task tell a genuine duplicate
+trigger (SKIPPED) apart from real work (SUCCESS).
 """
 
 from typing import Any
 
+from app.services.auth_service import AuthService
 from app.services.communication_service import CommunicationService
 from app.services.employee_service import EmployeeService
 from app.workflow_engine.context import HireWorkflowContext
@@ -44,14 +58,17 @@ class HireCandidateWorkflow(Workflow):
         context: HireWorkflowContext,
         employee_service: EmployeeService,
         communication_service: CommunicationService,
+        auth_service: AuthService,
     ) -> None:
         self._context = context
         self._employees = employee_service
         self._communication = communication_service
+        self._auth = auth_service
         self.steps: list[WorkflowStep] = [
             WorkflowStep("create_employee_record", self._create_employee_record),
             WorkflowStep("create_onboarding_checklist", self._create_onboarding_checklist),
             WorkflowStep("draft_welcome_email", self._draft_welcome_email),
+            WorkflowStep("grant_portal_access", self._grant_portal_access),
         ]
 
     async def _create_employee_record(self, state: dict[str, Any]) -> dict[str, Any]:
@@ -77,3 +94,11 @@ class HireCandidateWorkflow(Workflow):
             company_name=self._context.company_name,
         )
         return {"welcome_email_id": email.id, "welcome_email_created": created}
+
+    async def _grant_portal_access(self, state: dict[str, Any]) -> dict[str, Any]:
+        employee_id = state["employee_id"]
+        user, converted = await self._auth.convert_candidate_to_employee(
+            user_id=self._context.candidate_id, company_id=self._context.company_id
+        )
+        _, linked = await self._employees.link_user_account(employee_id, user.id)
+        return {"portal_user_id": user.id, "portal_access_granted": converted or linked}

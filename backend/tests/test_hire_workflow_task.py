@@ -66,6 +66,8 @@ def _make_runner(
     employee_created: bool = True,
     onboarding_created: bool = True,
     email_created: bool = True,
+    account_converted: bool = True,
+    account_linked: bool = True,
 ):
     application_repo = AsyncMock()
     application_repo.get_by_id_with_relations.return_value = application
@@ -77,6 +79,9 @@ def _make_runner(
     workflow_run_repo.create.side_effect = lambda run: run
 
     employee_service = AsyncMock()
+    communication_service = AsyncMock()
+    auth_service = AsyncMock()
+
     if application is not None:
         employee = Employee(
             id=uuid.uuid4(),
@@ -93,9 +98,8 @@ def _make_runner(
             [OnboardingTask(id=uuid.uuid4(), employee_id=employee.id, title="Set up workstation")],
             onboarding_created,
         )
+        employee_service.link_user_account.return_value = (employee, account_linked)
 
-    communication_service = AsyncMock()
-    if application is not None:
         email = Email(
             id=uuid.uuid4(),
             application_id=application.id,
@@ -108,6 +112,20 @@ def _make_runner(
         )
         communication_service.generate_system_draft.return_value = (email, email_created)
 
+        converted_user = User(
+            id=application.candidate_id,
+            company_id=application.company_id,
+            account_type="internal",
+            email="ahmed@example.com",
+            password_hash="x",
+            first_name="Ahmed",
+            last_name="Benali",
+        )
+        auth_service.convert_candidate_to_employee.return_value = (
+            converted_user,
+            account_converted,
+        )
+
     db = AsyncMock()
 
     runner = HireWorkflowRunner(
@@ -117,9 +135,10 @@ def _make_runner(
         workflow_run_repository=workflow_run_repo,
         employee_service=employee_service,
         communication_service=communication_service,
+        auth_service=auth_service,
         engine=WorkflowEngine(),
     )
-    return runner, db, workflow_run_repo, employee_service, communication_service
+    return runner, db, workflow_run_repo, employee_service, communication_service, auth_service
 
 
 # --- successful complete run ---
@@ -129,7 +148,7 @@ async def test_successful_run_persists_a_success_workflow_run() -> None:
     company_id = uuid.uuid4()
     application = _make_application(company_id=company_id)
     company = _make_company(company_id)
-    runner, db, workflow_run_repo, _, _ = _make_runner(application=application, company=company)
+    runner, db, workflow_run_repo, _, _, _ = _make_runner(application=application, company=company)
 
     run = await runner.run(application.id)
 
@@ -142,10 +161,28 @@ async def test_successful_run_persists_a_success_workflow_run() -> None:
         "create_employee_record",
         "create_onboarding_checklist",
         "draft_welcome_email",
+        "grant_portal_access",
     ]
     assert run.failed_step is None
     workflow_run_repo.create.assert_awaited_once()
     db.commit.assert_awaited_once()
+
+
+async def test_context_carries_the_applications_own_candidate_id() -> None:
+    """
+    The portal-access step converts context.candidate_id — this must be
+    the Application's own candidate, never anything else, since a wrong
+    value here would convert the WRONG person's account.
+    """
+    company_id = uuid.uuid4()
+    application = _make_application(company_id=company_id)
+    company = _make_company(company_id)
+    runner, _, _, _, _, auth_service = _make_runner(application=application, company=company)
+
+    await runner.run(application.id)
+
+    _, kwargs = auth_service.convert_candidate_to_employee.call_args
+    assert kwargs["user_id"] == application.candidate_id
 
 
 # --- duplicate trigger / idempotency ---
@@ -162,12 +199,16 @@ async def test_duplicate_trigger_persists_a_skipped_workflow_run() -> None:
     company_id = uuid.uuid4()
     application = _make_application(company_id=company_id)
     company = _make_company(company_id)
-    runner, _, workflow_run_repo, employee_service, communication_service = _make_runner(
-        application=application,
-        company=company,
-        employee_created=False,
-        onboarding_created=False,
-        email_created=False,
+    runner, _, _, employee_service, communication_service, auth_service = (
+        _make_runner(
+            application=application,
+            company=company,
+            employee_created=False,
+            onboarding_created=False,
+            email_created=False,
+            account_converted=False,
+            account_linked=False,
+        )
     )
 
     run = await runner.run(application.id)
@@ -179,9 +220,11 @@ async def test_duplicate_trigger_persists_a_skipped_workflow_run() -> None:
         "create_employee_record",
         "create_onboarding_checklist",
         "draft_welcome_email",
+        "grant_portal_access",
     ]
     employee_service.create_employee.assert_awaited_once()
     communication_service.generate_system_draft.assert_awaited_once()
+    auth_service.convert_candidate_to_employee.assert_awaited_once()
 
 
 async def test_partial_duplicate_trigger_is_still_recorded_as_success() -> None:
@@ -201,6 +244,8 @@ async def test_partial_duplicate_trigger_is_still_recorded_as_success() -> None:
         employee_created=False,  # already existed from a prior run
         onboarding_created=True,  # new this time
         email_created=True,
+        account_converted=True,
+        account_linked=True,
     )
 
     run = await runner.run(application.id)
@@ -215,7 +260,7 @@ async def test_failure_in_a_step_persists_a_failed_workflow_run_with_failed_step
     company_id = uuid.uuid4()
     application = _make_application(company_id=company_id)
     company = _make_company(company_id)
-    runner, _, workflow_run_repo, employee_service, communication_service = _make_runner(
+    runner, _, _, _, communication_service, _ = _make_runner(
         application=application, company=company
     )
     communication_service.generate_system_draft.side_effect = RuntimeError("LLM unavailable")
@@ -262,7 +307,7 @@ async def test_employee_created_for_the_applications_company_not_any_other() -> 
     company_id = uuid.uuid4()
     application = _make_application(company_id=company_id)
     company = _make_company(company_id)
-    runner, _, _, employee_service, _ = _make_runner(application=application, company=company)
+    runner, _, _, employee_service, _, _ = _make_runner(application=application, company=company)
 
     await runner.run(application.id)
 
@@ -274,7 +319,7 @@ async def test_employee_created_for_the_applications_company_not_any_other() -> 
 
 
 async def test_application_not_found_returns_none_and_does_not_persist_a_run() -> None:
-    runner, db, workflow_run_repo, _, _ = _make_runner(application=None, company=None)
+    runner, db, workflow_run_repo, _, _, _ = _make_runner(application=None, company=None)
 
     run = await runner.run(uuid.uuid4())
 
@@ -287,7 +332,7 @@ async def test_application_not_hired_returns_none_and_does_not_persist_a_run() -
     company_id = uuid.uuid4()
     application = _make_application(company_id=company_id, status=ApplicationStatus.OFFER.value)
     company = _make_company(company_id)
-    runner, db, workflow_run_repo, _, _ = _make_runner(application=application, company=company)
+    runner, db, workflow_run_repo, _, _, _ = _make_runner(application=application, company=company)
 
     run = await runner.run(application.id)
 
@@ -303,7 +348,9 @@ async def test_full_run_never_calls_mark_as_sent() -> None:
     company_id = uuid.uuid4()
     application = _make_application(company_id=company_id)
     company = _make_company(company_id)
-    runner, _, _, _, communication_service = _make_runner(application=application, company=company)
+    runner, _, _, _, communication_service, _ = _make_runner(
+        application=application, company=company
+    )
 
     await runner.run(application.id)
 

@@ -56,11 +56,17 @@ class TokenPair:
 
 
 class AuthService:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(
+        self,
+        db: AsyncSession,
+        user_repository: UserRepository | None = None,
+        company_repository: CompanyRepository | None = None,
+        role_repository: RoleRepository | None = None,
+    ) -> None:
         self._db = db
-        self._users = UserRepository(db)
-        self._companies = CompanyRepository(db)
-        self._roles = RoleRepository(db)
+        self._users = user_repository or UserRepository(db)
+        self._companies = company_repository or CompanyRepository(db)
+        self._roles = role_repository or RoleRepository(db)
 
     # --- Registration ---
 
@@ -135,6 +141,64 @@ class AuthService:
         )
         await self._db.commit()
         return user
+
+    async def convert_candidate_to_employee(
+        self, *, user_id: uuid.UUID, company_id: uuid.UUID
+    ) -> tuple[User, bool]:
+        """
+        Converts an existing candidate account into a company-scoped
+        employee account, IN PLACE — same login, same password, same
+        row. Called once, by HireCandidateWorkflow, when a candidate is
+        hired.
+
+        This is a conversion rather than creating a new account because
+        there is no separate Candidate identity in this codebase to
+        link against: `Application.candidate_id` already points at a
+        User row with account_type=CANDIDATE (see application.py's
+        module docstring). A second account with the same email
+        couldn't be created anyway — email is globally unique — so
+        there is genuinely nothing to create here, only three fields on
+        the existing row to flip: account_type, company_id, and role.
+
+        Confirmed MVP scope: an employee account is scoped to exactly
+        one company, same as every other internal account_type. Once
+        converted, this login can no longer apply as a platform-wide
+        candidate elsewhere on Talign — what matters once someone is
+        hired is which company hired them, not how many they'd applied
+        to before that point. Not handling "un-hire back to candidate"
+        or multi-company employment is a deliberate MVP limitation, not
+        an oversight.
+
+        Idempotent: returns (user, False) without modifying anything if
+        the account was already converted (a second hire-workflow
+        trigger for the same application) rather than attempting to
+        convert an already-internal account a second time.
+        """
+        user = await self._users.get_by_id(user_id)
+        if user is None:
+            # The candidate row backing an Application should always
+            # exist (FK-guaranteed) — this is a defensive guard against
+            # a genuinely inconsistent state, not an expected path.
+            raise RuntimeError(f"User '{user_id}' not found during hire conversion.")
+
+        if user.account_type == AccountType.INTERNAL.value:
+            return user, False
+
+        employee_role = await self._roles.get_by_name(RoleEnum.EMPLOYEE)
+        if employee_role is None:
+            raise RuntimeError("Role 'employee' is not seeded in the database.")
+        candidate_role = await self._roles.get_by_name(RoleEnum.CANDIDATE)
+
+        user.account_type = account_type_for_role(RoleEnum.EMPLOYEE)
+        user.company_id = company_id
+        await self._users.add_role(user.id, employee_role.id)
+        if candidate_role is not None:
+            await self._users.remove_role(user.id, candidate_role.id)
+
+        await self._db.commit()
+        converted = await self._users.get_by_id(user.id)  # reload, roles eager-loaded fresh
+        assert converted is not None
+        return converted, True
 
     async def _register_user(
         self,

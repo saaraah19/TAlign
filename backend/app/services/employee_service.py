@@ -69,6 +69,23 @@ class EmployeeService:
         await self._db.commit()
         return persisted, True
 
+    async def link_user_account(
+        self, employee_id: uuid.UUID, user_id: uuid.UUID
+    ) -> tuple[Employee, bool]:
+        """Returns (employee, linked). `linked=False` means this Employee
+        was already linked to this account (idempotent, matches
+        create_employee's (result, created) convention) — a second
+        hire-workflow trigger for the same application must not treat
+        re-linking the same pair as new work."""
+        employee = await self._employees.get_by_id(employee_id)
+        assert employee is not None  # created earlier in the same workflow run
+        if employee.user_id == user_id:
+            return employee, False
+
+        employee.user_id = user_id
+        await self._db.commit()
+        return employee, True
+
     async def create_onboarding_checklist(
         self, employee_id: uuid.UUID
     ) -> tuple[list[OnboardingTask], bool]:

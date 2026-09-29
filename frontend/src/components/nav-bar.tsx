@@ -5,18 +5,39 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "@/features/auth";
+import { isPlainEmployee } from "@/lib/roles";
 
 interface NavLink {
   href: Route;
   label: string;
 }
 
-const INTERNAL_LINKS: NavLink[] = [
+const BASE_INTERNAL_LINKS: NavLink[] = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/jobs", label: "Jobs" },
   { href: "/pipeline", label: "Pipeline" },
   { href: "/knowledge", label: "Knowledge" },
 ];
+
+// A plain employee (hired via HireCandidateWorkflow's portal-access
+// step — see AuthService.convert_candidate_to_employee) has no
+// business seeing Jobs/Pipeline, recruiting-only pages. This is the
+// third branch previously flagged as missing in the 9c scope note —
+// built now alongside the hire-time account conversion that finally
+// makes an employee-role login possible to reach in the first place.
+const EMPLOYEE_LINKS: NavLink[] = [
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/knowledge", label: "Knowledge" },
+  { href: "/portal/leave", label: "Leave" },
+];
+
+// Shown in addition to BASE_INTERNAL_LINKS, only for roles that can act
+// on the approval queue (see LeaveRequestService's module docstring —
+// approval is company-wide, any ADMIN or HIRING_MANAGER, not routed to
+// an individual manager). A plain recruiter role has no access to
+// these endpoints, so no point showing the link.
+const LEAVE_APPROVAL_LINK: NavLink = { href: "/leave-requests", label: "Leave requests" };
+const LEAVE_APPROVAL_ROLES = ["admin", "hiring_manager"];
 
 const CANDIDATE_LINKS: NavLink[] = [
   { href: "/dashboard", label: "Home" },
@@ -39,7 +60,16 @@ export function NavBar() {
 
   if (!user) return null;
 
-  const links = user.account_type === "candidate" ? CANDIDATE_LINKS : INTERNAL_LINKS;
+  const plainEmployee = isPlainEmployee(user.roles);
+
+  const links =
+    user.account_type === "candidate"
+      ? CANDIDATE_LINKS
+      : plainEmployee
+        ? EMPLOYEE_LINKS
+        : LEAVE_APPROVAL_ROLES.some((role) => user.roles.includes(role))
+          ? [...BASE_INTERNAL_LINKS, LEAVE_APPROVAL_LINK]
+          : BASE_INTERNAL_LINKS;
 
   async function handleLogout() {
     await logout();

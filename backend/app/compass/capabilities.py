@@ -59,12 +59,16 @@ def register_default_capabilities() -> None:
                     "Answers a general company-knowledge question (policies, benefits, "
                     "procedures) via retrieval-augmented generation over uploaded "
                     "Knowledge Documents. Not workspace-scoped — unlike explain_analysis, "
-                    "it isn't about any specific application. Role scope deliberately "
-                    "excludes Role.EMPLOYEE: the Employee Portal is V2-deferred, so "
-                    "employees have no UI path to reach this capability yet, and granting "
-                    "a role a capability with zero way to invoke it is dead RBAC surface "
-                    "(see HANDOVER.md's Slice 6 architecture notes)."
+                    "it isn't about any specific application. Role.EMPLOYEE was added "
+                    "once the Employee Portal (V2, Sub-slice 9c) gave employees an "
+                    "actual UI path to reach this capability (the Knowledge page, "
+                    "read-gated the same way — see api/v1/knowledge.py's _READ_ROLES). "
+                    "Before that it was deliberately excluded for the opposite reason: "
+                    "granting a role a capability with zero way to invoke it is dead "
+                    "RBAC surface (see HANDOVER.md's Slice 6 architecture notes)."
                 ),
-                allowed_roles=frozenset({Role.ADMIN, Role.RECRUITER, Role.HIRING_MANAGER}),
+                allowed_roles=frozenset(
+                    {Role.ADMIN, Role.RECRUITER, Role.HIRING_MANAGER, Role.EMPLOYEE}
+                ),
             )
         )
