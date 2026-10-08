@@ -56,6 +56,7 @@ from app.models.job import JobStatus
 from app.models.user import User
 from app.repositories.application_repository import ApplicationRepository
 from app.repositories.job_repository import JobRepository
+from app.repositories.resume_analysis_repository import ResumeAnalysisRepository
 from app.repositories.resume_repository import ResumeRepository
 
 logger = structlog.get_logger(__name__)
@@ -91,11 +92,13 @@ class ApplicationService:
         application_repository: ApplicationRepository | None = None,
         job_repository: JobRepository | None = None,
         resume_repository: ResumeRepository | None = None,
+        resume_analysis_repository: ResumeAnalysisRepository | None = None,
     ) -> None:
         self._db = db
         self._applications = application_repository or ApplicationRepository(db)
         self._jobs = job_repository or JobRepository(db)
         self._resumes = resume_repository or ResumeRepository(db)
+        self._resume_analyses = resume_analysis_repository or ResumeAnalysisRepository(db)
 
     # --- Submission ---
 
@@ -192,6 +195,25 @@ class ApplicationService:
         if application is None:
             raise NotFoundError("Application not found.")
         return application
+
+    async def get_latest_scores(
+        self, application_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, float]:
+        """
+        Backs the Pipeline list/Kanban's visible match score on each
+        candidate card. Thin pass-through to ResumeAnalysisRepository's
+        bulk lookup (one query for every id, not one per card) -- lives
+        here rather than being called directly from the router, same
+        "router talks to services only" discipline as everywhere else.
+
+        Does not re-validate that each id belongs to the caller's
+        company -- by design, the only caller is the pipeline list
+        endpoint, immediately after it already fetched these exact ids
+        from `list_applications_for_company`, which IS company-scoped.
+        This is a read of already-authorized ids, not a new access
+        point; don't call it with ids from an untrusted source.
+        """
+        return await self._resume_analyses.get_latest_completed_scores(application_ids)
 
     async def list_applications_for_company(
         self,

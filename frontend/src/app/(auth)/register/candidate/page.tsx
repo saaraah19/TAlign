@@ -2,28 +2,27 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { AuthSplitLayout } from "@/components/auth-split-layout";
 import { RegisterCandidateForm } from "@/features/auth";
 
 export default function RegisterCandidatePage() {
   const router = useRouter();
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 p-6 sm:p-8">
-      <div>
-        <h1 className="text-xl font-semibold">Create your candidate account</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          One account, apply to any company on Talign.
-        </p>
+    <AuthSplitLayout eyebrow="Track every application and get scored, transparent feedback.">
+      <h1 className="text-2xl font-semibold tracking-tight text-ink">Create your account</h1>
+      <p className="mt-1.5 text-sm text-ink/50">Apply to jobs and track your progress.</p>
+
+      <div className="mt-8">
+        <RegisterCandidateForm onSuccess={() => router.push("/dashboard")} />
       </div>
 
-      <RegisterCandidateForm onSuccess={() => router.push("/dashboard")} />
-
-      <p className="text-center text-sm text-gray-500">
+      <p className="mt-8 text-center text-sm text-ink/50">
         Already have an account?{" "}
-        <Link href="/login" className="font-medium text-gray-900 underline">
+        <Link href="/login" className="font-medium text-ink underline underline-offset-2">
           Sign in
         </Link>
       </p>
-    </main>
+    </AuthSplitLayout>
   );
 }

@@ -67,8 +67,13 @@ export interface Job {
   updated_at: string;
 }
 
+export interface JobWithStats extends Job {
+  applicant_count: number;
+  stage_counts: Record<string, number>;
+}
+
 export interface JobListResponse {
-  items: Job[];
+  items: JobWithStats[];
   total: number;
   page: number;
   page_size: number;

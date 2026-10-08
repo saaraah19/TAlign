@@ -24,8 +24,10 @@ from app.core.roles import Role
 from app.database.session import get_db
 from app.models.user import User
 from app.schemas.application import ApplicationWithCandidate
+from app.models.application import ApplicationStatus
 from app.schemas.dashboard import (
     DashboardBriefRead,
+    DashboardKPIsRead,
     DashboardRead,
     LowApplicantJobRead,
     RecentAnalysisRead,
@@ -48,6 +50,13 @@ async def get_dashboard(
 
     return DashboardRead(
         brief=(DashboardBriefRead.model_validate(data.brief) if data.brief else None),
+        kpis=DashboardKPIsRead(
+            open_jobs=data.open_jobs_count,
+            active_candidates=data.active_candidates_count,
+            interviewing=data.stage_counts[ApplicationStatus.INTERVIEW.value],
+            pending_actions=data.pending_actions_count,
+            stage_counts=data.stage_counts,
+        ),
         awaiting_review=[
             ApplicationWithCandidate.model_validate(a) for a in data.awaiting_review
         ],

@@ -2,31 +2,32 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { AuthSplitLayout } from "@/components/auth-split-layout";
 import { LoginForm } from "@/features/auth";
 
 export default function LoginPage() {
   const router = useRouter();
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 p-6 sm:p-8">
-      <div>
-        <h1 className="text-xl font-semibold">Sign in to Talign</h1>
-        <p className="mt-1 text-sm text-gray-500">Welcome back.</p>
+    <AuthSplitLayout eyebrow="Talign — AI-native Talent Operating System">
+      <h1 className="text-2xl font-semibold tracking-tight text-ink">Welcome back</h1>
+      <p className="mt-1.5 text-sm text-ink/50">Sign in to your workspace.</p>
+
+      <div className="mt-8">
+        <LoginForm onSuccess={() => router.push("/dashboard")} />
       </div>
 
-      <LoginForm onSuccess={() => router.push("/dashboard")} />
-
-      <p className="text-center text-sm text-gray-500">
+      <p className="mt-8 text-center text-sm text-ink/50">
         New to Talign?{" "}
-        <Link href="/register/company" className="font-medium text-gray-900 underline">
+        <Link href="/register/company" className="font-medium text-ink underline underline-offset-2">
           Register your company
         </Link>{" "}
         or{" "}
-        <Link href="/register/candidate" className="font-medium text-gray-900 underline">
+        <Link href="/register/candidate" className="font-medium text-ink underline underline-offset-2">
           apply as a candidate
         </Link>
         .
       </p>
-    </main>
+    </AuthSplitLayout>
   );
 }

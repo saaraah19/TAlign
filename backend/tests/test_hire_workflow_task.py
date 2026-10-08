@@ -199,7 +199,7 @@ async def test_duplicate_trigger_persists_a_skipped_workflow_run() -> None:
     company_id = uuid.uuid4()
     application = _make_application(company_id=company_id)
     company = _make_company(company_id)
-    runner, _, _, employee_service, communication_service, auth_service = (
+    runner, _, workflow_run_repo, employee_service, communication_service, auth_service = (
         _make_runner(
             application=application,
             company=company,

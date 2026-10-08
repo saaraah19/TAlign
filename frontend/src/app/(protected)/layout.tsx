@@ -28,13 +28,13 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   }, [isLoading, user, router]);
 
   if (isLoading || !user) {
-    return <main className="p-8 text-sm text-gray-500">Loading…</main>;
+    return <main className="min-h-screen bg-paper p-8 text-sm text-ink/50">Loading…</main>;
   }
 
   return (
-    <>
+    <div className="min-h-screen bg-paper">
       <NavBar />
       {children}
-    </>
+    </div>
   );
 }

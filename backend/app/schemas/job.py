@@ -85,8 +85,22 @@ class JobRead(BaseModel):
     updated_at: datetime
 
 
+class JobWithStatsRead(JobRead):
+    """
+    JobRead plus per-job pipeline stats, for the Jobs list page's cards.
+    Not just `JobRead` itself because these two fields aren't columns on
+    Job -- they're computed by aggregating Applications (see
+    ApplicationRepository.count_by_status_grouped_by_job) and can't be
+    produced by a plain `model_validate(job)` the way every other field
+    here can.
+    """
+
+    applicant_count: int
+    stage_counts: dict[str, int]
+
+
 class JobListResponse(BaseModel):
-    items: list[JobRead]
+    items: list[JobWithStatsRead]
     total: int
     page: int
     page_size: int

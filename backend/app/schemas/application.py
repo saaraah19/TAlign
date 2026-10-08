@@ -69,8 +69,20 @@ class ApplicationListResponse(BaseModel):
     page_size: int
 
 
+class ApplicationWithScore(ApplicationWithCandidate):
+    """
+    Pipeline-list-specific: adds the candidate's latest completed
+    alignment score. Not a column on Application -- computed via
+    ResumeAnalysisRepository.get_latest_completed_scores, same reasoning
+    as JobWithStatsRead not being producible from a plain
+    model_validate(application).
+    """
+
+    latest_score: float | None = None
+
+
 class PipelineListResponse(BaseModel):
-    items: list[ApplicationWithCandidate]
+    items: list[ApplicationWithScore]
     total: int
     page: int
     page_size: int

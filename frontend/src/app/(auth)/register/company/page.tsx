@@ -2,28 +2,29 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { AuthSplitLayout } from "@/components/auth-split-layout";
 import { RegisterCompanyForm } from "@/features/auth";
 
 export default function RegisterCompanyPage() {
   const router = useRouter();
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 p-6 sm:p-8">
-      <div>
-        <h1 className="text-xl font-semibold">Set up your company</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          You'll be the first admin — invite your team afterward.
-        </p>
+    <AuthSplitLayout eyebrow="You'll be the first admin — invite your team afterward.">
+      <h1 className="text-2xl font-semibold tracking-tight text-ink">
+        Create your company workspace
+      </h1>
+      <p className="mt-1.5 text-sm text-ink/50">Takes about a minute.</p>
+
+      <div className="mt-8">
+        <RegisterCompanyForm onSuccess={() => router.push("/dashboard")} />
       </div>
 
-      <RegisterCompanyForm onSuccess={() => router.push("/dashboard")} />
-
-      <p className="text-center text-sm text-gray-500">
+      <p className="mt-8 text-center text-sm text-ink/50">
         Already have an account?{" "}
-        <Link href="/login" className="font-medium text-gray-900 underline">
+        <Link href="/login" className="font-medium text-ink underline underline-offset-2">
           Sign in
         </Link>
       </p>
-    </main>
+    </AuthSplitLayout>
   );
 }

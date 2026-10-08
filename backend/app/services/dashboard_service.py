@@ -23,6 +23,7 @@ Dashboard with no Brief paragraph is still useful; a Dashboard that
 500s because one LLM call failed is not.
 """
 
+import uuid
 from datetime import UTC, datetime
 
 import structlog
@@ -31,7 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agents.dashboard.agent import DashboardAgent
 from app.agents.dashboard.schemas import RecommendedAction
 from app.core.exceptions import InvalidStructuredOutputError, LLMProviderError
-from app.models.application import Application
+from app.models.application import Application, ApplicationStatus
 from app.models.dashboard_brief import DashboardBrief
 from app.models.email import Email
 from app.models.job import Job
@@ -100,6 +101,21 @@ class DashboardService:
             company_id, limit=DEFAULT_LIST_LIMIT
         )
 
+        open_jobs_count = await self._jobs.count_open(company_id)
+        stage_counts = await self._build_stage_counts(company_id)
+        # "Candidates" KPI reads as "how many people are you actively
+        # considering right now" -- HIRED and REJECTED are resolved, not
+        # something requiring attention today, so they're deliberately
+        # excluded from this one number (they still appear in
+        # stage_counts itself, for the funnel visualization).
+        active_candidates_count = (
+            stage_counts[ApplicationStatus.APPLIED.value]
+            + stage_counts[ApplicationStatus.SCREENING.value]
+            + stage_counts[ApplicationStatus.INTERVIEW.value]
+            + stage_counts[ApplicationStatus.OFFER.value]
+        )
+        pending_actions_count = len(awaiting_review) + len(pending_drafts)
+
         brief = await self._get_or_generate_daily_brief(
             acting_user=acting_user,
             awaiting_review=awaiting_review,
@@ -115,7 +131,18 @@ class DashboardService:
             recent_analyses=recent_analyses,
             recent_workflow_runs=recent_workflow_runs,
             pending_drafts=pending_drafts,
+            open_jobs_count=open_jobs_count,
+            active_candidates_count=active_candidates_count,
+            pending_actions_count=pending_actions_count,
+            stage_counts=stage_counts,
         )
+
+    async def _build_stage_counts(self, company_id: uuid.UUID) -> dict[str, int]:
+        raw_counts = await self._applications.count_by_status_for_company(company_id)
+        # Every status always present, even at zero -- the funnel UI
+        # shouldn't have to guess whether a missing key means "zero" or
+        # "not computed."
+        return {status.value: raw_counts.get(status.value, 0) for status in ApplicationStatus}
 
     async def _get_or_generate_daily_brief(
         self,
@@ -242,6 +269,10 @@ class DashboardData:
         recent_analyses: list[ResumeAnalysis],
         recent_workflow_runs: list[WorkflowRun],
         pending_drafts: list[Email],
+        open_jobs_count: int,
+        active_candidates_count: int,
+        pending_actions_count: int,
+        stage_counts: dict[str, int],
     ) -> None:
         self.brief = brief
         self.awaiting_review = awaiting_review
@@ -249,3 +280,7 @@ class DashboardData:
         self.recent_analyses = recent_analyses
         self.recent_workflow_runs = recent_workflow_runs
         self.pending_drafts = pending_drafts
+        self.open_jobs_count = open_jobs_count
+        self.active_candidates_count = active_candidates_count
+        self.pending_actions_count = pending_actions_count
+        self.stage_counts = stage_counts

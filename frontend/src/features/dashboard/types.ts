@@ -39,8 +39,17 @@ export interface PendingDraftEmail {
   created_at: string;
 }
 
+export interface DashboardKPIs {
+  open_jobs: number;
+  active_candidates: number;
+  interviewing: number;
+  pending_actions: number;
+  stage_counts: Record<string, number>;
+}
+
 export interface DashboardData {
   brief: DashboardBrief | null;
+  kpis: DashboardKPIs;
   awaiting_review: ApplicationWithCandidate[];
   low_applicant_jobs: LowApplicantJob[];
   recent_analyses: RecentAnalysis[];

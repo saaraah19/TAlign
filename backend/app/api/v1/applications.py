@@ -37,8 +37,10 @@ from app.schemas.application import (
     ApplicationStatusTransitionRequest,
     ApplicationWithCandidate,
     ApplicationWithJob,
+    ApplicationWithScore,
     PipelineListResponse,
 )
+from app.schemas.employee import HireWorkflowStatusRead
 from app.schemas.resume_analysis import (
     AnalysisProgressStatusRead,
     AttachResumeRequest,
@@ -47,7 +49,6 @@ from app.schemas.resume_analysis import (
 )
 from app.services.application_service import ApplicationService
 from app.services.resume_analysis_service import ResumeAnalysisService, run_resume_analysis_task
-from app.schemas.employee import HireWorkflowStatusRead
 from app.workflow_engine.status import get_hire_workflow_status
 from app.workflow_engine.tasks import run_hire_workflow_task
 
@@ -166,15 +167,26 @@ async def list_pipeline(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_roles(*_PIPELINE_READ_ROLES)),
 ) -> PipelineListResponse:
-    applications, total = await ApplicationService(db).list_applications_for_company(
+    application_service = ApplicationService(db)
+    applications, total = await application_service.list_applications_for_company(
         acting_user=current_user,
         job_id=job_id,
         status=status.value if status else None,
         page=page,
         page_size=page_size,
     )
+    # One query for every card's score, not one query per card -- see
+    # ResumeAnalysisRepository.get_latest_completed_scores's docstring.
+    scores = await application_service.get_latest_scores([a.id for a in applications])
+
     return PipelineListResponse(
-        items=[ApplicationWithCandidate.model_validate(a) for a in applications],
+        items=[
+            ApplicationWithScore(
+                **ApplicationWithCandidate.model_validate(a).model_dump(),
+                latest_score=scores.get(a.id),
+            )
+            for a in applications
+        ],
         total=total,
         page=page,
         page_size=page_size,

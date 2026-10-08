@@ -81,6 +81,16 @@ class JobRepository:
         )
         return list(result.scalars().all()), total
 
+    async def count_open(self, company_id: uuid.UUID) -> int:
+        """Backs the Dashboard's \"Open roles\" KPI — a plain count, no
+        rows fetched, since the Dashboard only ever needs the number."""
+        query = (
+            select(func.count())
+            .select_from(Job)
+            .where(Job.company_id == company_id, Job.status == JobStatus.OPEN.value)
+        )
+        return (await self._db.execute(query)).scalar_one()
+
     async def delete(self, job: Job) -> None:
         await self._db.delete(job)
         await self._db.flush()

@@ -28,9 +28,8 @@ from app.core.exceptions import (
     InvalidCredentialsError,
     InvalidTokenError,
 )
-from app.core.roles import AccountType
+from app.core.roles import AccountType, account_type_for_role
 from app.core.roles import Role as RoleEnum
-from app.core.roles import account_type_for_role
 from app.core.security import (
     TokenType,
     create_access_token,

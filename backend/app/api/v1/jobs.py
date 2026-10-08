@@ -18,7 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import require_roles
 from app.core.roles import Role
 from app.database.session import get_db
-from app.models.job import JobStatus
+from app.models.application import ApplicationStatus
+from app.models.job import Job, JobStatus
 from app.models.user import User
 from app.schemas.job import (
     JobCreateRequest,
@@ -26,6 +27,7 @@ from app.schemas.job import (
     JobRead,
     JobStatusTransitionRequest,
     JobUpdateRequest,
+    JobWithStatsRead,
 )
 from app.services.job_service import JobService
 
@@ -65,14 +67,28 @@ async def list_jobs(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_roles(*_READ_ROLES)),
 ) -> JobListResponse:
-    jobs, total = await JobService(db).list_jobs(
+    job_service = JobService(db)
+    jobs, total = await job_service.list_jobs(
         acting_user=current_user,
         status=status.value if status else None,
         page=page,
         page_size=page_size,
     )
+    # One query for every job's stats, not one query per job -- see
+    # ApplicationRepository.count_by_status_grouped_by_job's docstring.
+    stats_by_job = await job_service.get_pipeline_stats(current_user)
+
+    def _job_with_stats(job: Job) -> JobWithStatsRead:
+        raw_counts = stats_by_job.get(job.id, {})
+        stage_counts = {s.value: raw_counts.get(s.value, 0) for s in ApplicationStatus}
+        return JobWithStatsRead(
+            **JobRead.model_validate(job).model_dump(),
+            applicant_count=sum(stage_counts.values()),
+            stage_counts=stage_counts,
+        )
+
     return JobListResponse(
-        items=[JobRead.model_validate(job) for job in jobs],
+        items=[_job_with_stats(job) for job in jobs],
         total=total,
         page=page,
         page_size=page_size,

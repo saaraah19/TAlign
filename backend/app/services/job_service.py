@@ -31,6 +31,7 @@ from app.core.exceptions import (
 from app.domain.events import DomainEvent, JobArchived, JobClosed, JobPublished
 from app.models.job import Job, JobStatus
 from app.models.user import User
+from app.repositories.application_repository import ApplicationRepository
 from app.repositories.job_repository import JobRepository
 
 logger = structlog.get_logger(__name__)
@@ -58,9 +59,29 @@ _TRANSITION_EVENTS: dict[tuple[JobStatus, JobStatus], type[DomainEvent]] = {
 
 
 class JobService:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(
+        self,
+        db: AsyncSession,
+        job_repository: JobRepository | None = None,
+        application_repository: ApplicationRepository | None = None,
+    ) -> None:
         self._db = db
-        self._jobs = JobRepository(db)
+        self._jobs = job_repository or JobRepository(db)
+        self._applications = application_repository or ApplicationRepository(db)
+
+    async def get_pipeline_stats(
+        self, acting_user: User
+    ) -> dict[uuid.UUID, dict[str, int]]:
+        """
+        Per-job applicant/stage counts for the Jobs list page's cards
+        ("12 applicants, 4 screening, 3 interview"). Thin pass-through
+        to ApplicationRepository -- lives here rather than being called
+        directly from the router so the API layer talks to services
+        only, never repositories, same discipline as everything else in
+        this codebase.
+        """
+        self._assert_internal_with_company(acting_user)
+        return await self._applications.count_by_status_grouped_by_job(acting_user.company_id)
 
     async def create_job(
         self,

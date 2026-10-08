@@ -78,6 +78,35 @@ class ResumeAnalysisRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_latest_completed_scores(
+        self, application_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, float]:
+        """
+        Backs the Pipeline list/Kanban's per-card match score — one
+        query for every id's latest completed score, via Postgres'
+        `DISTINCT ON`, rather than one `get_latest_completed_for_
+        application` call per card (an N+1 that would scale with
+        however many candidates are on the page). An application with
+        no completed analysis yet simply has no key in the result; the
+        caller decides how to render that (e.g. "not yet scored").
+        """
+        if not application_ids:
+            return {}
+        result = await self._db.execute(
+            select(ResumeAnalysis.application_id, ResumeAnalysis.overall_score)
+            .distinct(ResumeAnalysis.application_id)
+            .where(
+                ResumeAnalysis.application_id.in_(application_ids),
+                ResumeAnalysis.status == AnalysisStatus.COMPLETED.value,
+            )
+            .order_by(ResumeAnalysis.application_id, ResumeAnalysis.created_at.desc())
+        )
+        return {
+            application_id: score
+            for application_id, score in result.all()
+            if score is not None
+        }
+
     async def list_recent_completed_for_company(
         self, company_id: uuid.UUID, *, limit: int = 10
     ) -> list[ResumeAnalysis]:

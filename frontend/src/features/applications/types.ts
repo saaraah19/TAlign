@@ -81,6 +81,10 @@ export interface ApplicationWithCandidate extends ApplicationWithJob {
   candidate: CandidateSummary;
 }
 
+export interface ApplicationWithScore extends ApplicationWithCandidate {
+  latest_score: number | null;
+}
+
 export interface ApplicationListResponse {
   items: ApplicationWithJob[];
   total: number;
@@ -89,7 +93,7 @@ export interface ApplicationListResponse {
 }
 
 export interface PipelineListResponse {
-  items: ApplicationWithCandidate[];
+  items: ApplicationWithScore[];
   total: number;
   page: number;
   page_size: number;

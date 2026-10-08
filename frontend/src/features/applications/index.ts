@@ -1,5 +1,5 @@
 export { MyApplicationsList } from "./components/my-applications-list";
-export { PipelineView } from "./components/pipeline-view";
+export { KanbanBoard } from "./components/kanban-board";
 export { ApplyButton } from "./components/apply-button";
 export { ApplyForm } from "./components/apply-form";
 export { ApplicationStatusBadge } from "./components/application-status-badge";

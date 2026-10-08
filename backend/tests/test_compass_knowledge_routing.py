@@ -148,7 +148,7 @@ async def test_candidate_role_never_routes_to_knowledge_query() -> None:
 async def test_employee_role_routes_to_knowledge_query() -> None:
     """
     Added for Sub-slice 9c: an employee asking Compass a general
-    question (no workspace in view — employees never have an
+    question (no workspace in view -- employees never have an
     application-workspace anyway) now reaches knowledge_query, same as
     the internal recruiting roles' no-workspace case above.
     """

@@ -1,3 +1,4 @@
+import type { Route } from "next";
 import Link from "next/link";
 
 const COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
@@ -40,13 +41,21 @@ export function LandingFooter() {
                 {col.title}
               </p>
               <ul className="mt-4 space-y-2.5">
-                {col.links.map((link) => (
-                  <li key={link.label}>
-                    <Link href={link.href} className="text-sm hover:text-white">
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
+                {col.links.map((link) =>
+                  link.href.startsWith("#") ? (
+                    <li key={link.label}>
+                      <a href={link.href} className="text-sm hover:text-white">
+                        {link.label}
+                      </a>
+                    </li>
+                  ) : (
+                    <li key={link.label}>
+                      <Link href={link.href as Route} className="text-sm hover:text-white">
+                        {link.label}
+                      </Link>
+                    </li>
+                  )
+                )}
               </ul>
             </div>
           ))}

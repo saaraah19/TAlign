@@ -37,17 +37,24 @@ export interface HireWorkflowStatus {
   onboarding_tasks: OnboardingTask[];
 }
 
-// Human-readable labels for the three hire-workflow steps, in order —
+// Human-readable labels for the four hire-workflow steps, in order —
 // mirrors app/workflow_engine/workflows/hire_candidate.py's step names
 // exactly, so completed_steps/failed_step can render meaningfully.
+// `grant_portal_access` was added alongside the candidate-to-employee
+// account conversion work — this mapping had drifted out of sync with
+// the backend's 4-step workflow until now (3 steps listed, backend had
+// 4), caught while touching workflow-run display for the Dashboard
+// redesign.
 export const HIRE_WORKFLOW_STEP_LABELS: Record<string, string> = {
   create_employee_record: "Create employee record",
   create_onboarding_checklist: "Create onboarding checklist",
   draft_welcome_email: "Draft welcome email",
+  grant_portal_access: "Grant portal access",
 };
 
 export const HIRE_WORKFLOW_STEP_ORDER = [
   "create_employee_record",
   "create_onboarding_checklist",
   "draft_welcome_email",
+  "grant_portal_access",
 ];

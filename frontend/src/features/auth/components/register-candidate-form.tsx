@@ -3,9 +3,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ApiError } from "@/lib/api-client";
 import { useAuth } from "../hooks/use-auth";
 import { registerCandidateSchema, type RegisterCandidateInput } from "../types";
-import { ApiError } from "@/lib/api-client";
 
 export function RegisterCandidateForm({ onSuccess }: { onSuccess?: () => void }) {
   const { registerCandidate } = useAuth();
@@ -27,61 +29,27 @@ export function RegisterCandidateForm({ onSuccess }: { onSuccess?: () => void })
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium">First name</label>
-          <input
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-            {...register("first_name")}
-          />
-          {errors.first_name && (
-            <p className="mt-1 text-sm text-red-600">{errors.first_name.message}</p>
-          )}
-        </div>
-        <div>
-          <label className="block text-sm font-medium">Last name</label>
-          <input
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-            {...register("last_name")}
-          />
-          {errors.last_name && (
-            <p className="mt-1 text-sm text-red-600">{errors.last_name.message}</p>
-          )}
-        </div>
+        <Input label="First name" error={errors.first_name?.message} {...register("first_name")} />
+        <Input label="Last name" error={errors.last_name?.message} {...register("last_name")} />
       </div>
+      <Input label="Email" type="email" error={errors.email?.message} {...register("email")} />
+      <Input
+        label="Password"
+        type="password"
+        helperText="At least 8 characters."
+        error={errors.password?.message}
+        {...register("password")}
+      />
 
-      <div>
-        <label className="block text-sm font-medium">Email</label>
-        <input
-          type="email"
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-          {...register("email")}
-        />
-        {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
-      </div>
+      {serverError && (
+        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{serverError}</p>
+      )}
 
-      <div>
-        <label className="block text-sm font-medium">Password</label>
-        <input
-          type="password"
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-          {...register("password")}
-        />
-        {errors.password && (
-          <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
-        )}
-      </div>
-
-      {serverError && <p className="text-sm text-red-600">{serverError}</p>}
-
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-      >
+      <Button type="submit" disabled={isSubmitting} className="w-full">
         {isSubmitting ? "Creating your account…" : "Create candidate account"}
-      </button>
+      </Button>
     </form>
   );
 }

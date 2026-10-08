@@ -50,6 +50,28 @@ export function useTransitionApplication(applicationId: string) {
   });
 }
 
+/**
+ * Generic sibling of useTransitionApplication — that hook is bound to
+ * one applicationId per call, which fits the candidate detail page
+ * (already knows its own id) but not the Kanban board, where any one
+ * of many cards might move. Takes the id at call time instead.
+ */
+export function useMoveApplicationStage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      applicationId,
+      targetStatus,
+    }: {
+      applicationId: string;
+      targetStatus: ApplicationStatus;
+    }) => applicationsApi.transition(applicationId, targetStatus),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["applications", "pipeline"] });
+    },
+  });
+}
+
 // --- Slice 4: Resume Intelligence ---
 
 const ACTIVE_PROGRESS_STATES = new Set(["parsing", "analyzing"]);

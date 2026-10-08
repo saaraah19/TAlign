@@ -3,18 +3,32 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ApiError } from "@/lib/api-client";
 import { useAuth } from "../hooks/use-auth";
 import { registerCompanySchema, type RegisterCompanyInput } from "../types";
-import { ApiError } from "@/lib/api-client";
+
+const STEPS = [
+  { key: "company", label: "Company" },
+  { key: "profile", label: "Your profile" },
+] as const;
 
 export function RegisterCompanyForm({ onSuccess }: { onSuccess?: () => void }) {
   const { registerCompany } = useAuth();
+  const [step, setStep] = useState<0 | 1>(0);
   const [serverError, setServerError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
+    trigger,
     formState: { errors, isSubmitting },
   } = useForm<RegisterCompanyInput>({ resolver: zodResolver(registerCompanySchema) });
+
+  async function goToProfileStep() {
+    const valid = await trigger("company_name");
+    if (valid) setStep(1);
+  }
 
   async function onSubmit(values: RegisterCompanyInput) {
     setServerError(null);
@@ -27,72 +41,81 @@ export function RegisterCompanyForm({ onSuccess }: { onSuccess?: () => void }) {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-      <Field label="Company name" error={errors.company_name?.message}>
-        <input
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-          {...register("company_name")}
-        />
-      </Field>
-
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="Your first name" error={errors.admin_first_name?.message}>
-          <input
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-            {...register("admin_first_name")}
-          />
-        </Field>
-        <Field label="Your last name" error={errors.admin_last_name?.message}>
-          <input
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-            {...register("admin_last_name")}
-          />
-        </Field>
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
+      {/* Progress indicator */}
+      <div className="flex items-center gap-3">
+        {STEPS.map((s, i) => (
+          <div key={s.key} className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  i <= step ? "bg-ink" : "bg-line"
+                }`}
+              />
+              <span className={`text-xs font-medium ${i === step ? "text-ink" : "text-ink/35"}`}>
+                {s.label}
+              </span>
+            </div>
+            {i < STEPS.length - 1 && <span className="h-px w-6 bg-line" />}
+          </div>
+        ))}
       </div>
 
-      <Field label="Work email" error={errors.email?.message}>
-        <input
+      {/* Step 1 — Company. Kept mounted (just hidden) rather than
+          conditionally rendered, so react-hook-form's registration
+          for company_name survives moving to step 2 and back. */}
+      <div className={step === 0 ? "flex flex-col gap-5" : "hidden"}>
+        <Input
+          label="Company name"
+          error={errors.company_name?.message}
+          {...register("company_name")}
+        />
+        <Button type="button" onClick={goToProfileStep} className="w-full">
+          Continue
+        </Button>
+      </div>
+
+      {/* Step 2 — admin profile */}
+      <div className={step === 1 ? "flex flex-col gap-5" : "hidden"}>
+        <div className="grid grid-cols-2 gap-4">
+          <Input
+            label="First name"
+            error={errors.admin_first_name?.message}
+            {...register("admin_first_name")}
+          />
+          <Input
+            label="Last name"
+            error={errors.admin_last_name?.message}
+            {...register("admin_last_name")}
+          />
+        </div>
+        <Input
+          label="Work email"
           type="email"
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          error={errors.email?.message}
           {...register("email")}
         />
-      </Field>
-
-      <Field label="Password" error={errors.password?.message}>
-        <input
+        <Input
+          label="Password"
           type="password"
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          helperText="At least 8 characters."
+          error={errors.password?.message}
           {...register("password")}
         />
-      </Field>
 
-      {serverError && <p className="text-sm text-red-600">{serverError}</p>}
+        {serverError && (
+          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{serverError}</p>
+        )}
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-      >
-        {isSubmitting ? "Creating your workspace…" : "Create company workspace"}
-      </button>
+        <div className="flex gap-3">
+          <Button type="button" variant="secondary" onClick={() => setStep(0)}>
+            Back
+          </Button>
+          <Button type="submit" disabled={isSubmitting} className="flex-1">
+            {isSubmitting ? "Creating your workspace…" : "Create company workspace"}
+          </Button>
+        </div>
+      </div>
     </form>
-  );
-}
-
-function Field({
-  label,
-  error,
-  children,
-}: {
-  label: string;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label className="block text-sm font-medium">{label}</label>
-      {children}
-      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
-    </div>
   );
 }

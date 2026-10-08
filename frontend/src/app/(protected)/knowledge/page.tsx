@@ -5,11 +5,8 @@ import { CompassAsk } from "@/features/compass";
 import { DocumentList, DocumentUpload } from "@/features/knowledge";
 
 // Read access mirrors the backend's knowledge_query Compass capability
-// scope (ADMIN/RECRUITER/HIRING_MANAGER/EMPLOYEE) — see
-// app/api/v1/knowledge.py's module docstring on the backend for why
-// this list. EMPLOYEE was added for Sub-slice 9c, once the hire-time
-// account conversion gave employees an actual account that can reach
-// this page.
+// scope (ADMIN/RECRUITER/HIRING_MANAGER) — see app/api/v1/knowledge.py's
+// module docstring on the backend for why this list, not just ADMIN.
 const READ_ROLES = ["admin", "recruiter", "hiring_manager", "employee"];
 
 export default function KnowledgePage() {

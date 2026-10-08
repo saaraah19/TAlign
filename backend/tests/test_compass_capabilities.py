@@ -60,7 +60,7 @@ def test_employee_can_access_knowledge_query_only() -> None:
     """
     Added for Sub-slice 9c: the Employee Portal now gives Role.EMPLOYEE
     an actual UI path to knowledge_query (the Knowledge page). Never
-    explain_analysis — that's recruiter-facing candidate-evaluation
+    explain_analysis -- that's recruiter-facing candidate-evaluation
     content an employee has no legitimate reason to reach.
     """
     available = compass_capability_registry.available_for_role(Role.EMPLOYEE)
@@ -92,7 +92,7 @@ def test_compass_resolves_employee_to_knowledge_query_regardless_of_workspace() 
     """
     Added for Sub-slice 9c: unlike the internal (ADMIN/RECRUITER/
     HIRING_MANAGER) roles above, an employee always resolves to
-    knowledge_query even if a workspace_id is somehow present — they
+    knowledge_query even if a workspace_id is somehow present -- they
     should never be routed toward explain_analysis.
     """
     assert Compass._resolve_capability_for_role(Role.EMPLOYEE, None) == "knowledge_query"

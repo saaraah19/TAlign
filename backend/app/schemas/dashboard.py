@@ -49,8 +49,27 @@ class RecentAnalysisRead(BaseModel):
     analyzed_at: datetime | None
 
 
+class DashboardKPIsRead(BaseModel):
+    """
+    The Dashboard's top-line numbers. `active_candidates` deliberately
+    excludes HIRED and REJECTED applications (see DashboardService.
+    get_dashboard's comment) -- it answers "how many people are you
+    actively considering right now," not "how many ever applied."
+    `stage_counts` carries all six ApplicationStatus values, always,
+    even at zero, so the funnel UI never has to guess whether a missing
+    key means zero or not-yet-computed.
+    """
+
+    open_jobs: int
+    active_candidates: int
+    interviewing: int
+    pending_actions: int
+    stage_counts: dict[str, int]
+
+
 class DashboardRead(BaseModel):
     brief: DashboardBriefRead | None
+    kpis: DashboardKPIsRead
     awaiting_review: list[ApplicationWithCandidate]
     low_applicant_jobs: list[LowApplicantJobRead]
     recent_analyses: list[RecentAnalysisRead]
