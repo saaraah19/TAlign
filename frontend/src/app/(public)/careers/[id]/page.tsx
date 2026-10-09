@@ -1,5 +1,6 @@
 "use client";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import { useParams } from "next/navigation";
 import { ApplyButton } from "@/features/applications";
 import { CURRENCY_SYMBOLS, EMPLOYMENT_TYPE_LABELS, usePublicJob } from "@/features/jobs";
@@ -8,7 +9,12 @@ export default function PublicJobDetailPage() {
   const params = useParams<{ id: string }>();
   const { data: job, isLoading, error } = usePublicJob(params.id);
 
-  if (isLoading) return <main className="p-8 text-sm text-gray-500">Loading…</main>;
+  if (isLoading) return (
+      <main className="mx-auto max-w-3xl p-6 sm:p-8">
+      <Skeleton className="h-7 w-64" />
+      <Skeleton className="mt-6 h-40 w-full" />
+    </main>
+    );
   if (error || !job) {
     return (
       <main className="p-8 text-sm text-red-600">

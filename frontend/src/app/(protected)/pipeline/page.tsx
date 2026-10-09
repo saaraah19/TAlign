@@ -2,6 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { KanbanBoard } from "@/features/applications";
 
 function PipelineContent() {
@@ -24,7 +25,14 @@ function PipelineContent() {
 
 export default function PipelinePage() {
   return (
-    <Suspense fallback={<main className="p-8 text-sm text-ink/50">Loading…</main>}>
+    <Suspense
+      fallback={
+        <main className="mx-auto max-w-content p-6 sm:p-8">
+          <Skeleton className="h-8 w-40" />
+          <Skeleton className="mt-8 h-64 w-full" />
+        </main>
+      }
+    >
       <PipelineContent />
     </Suspense>
   );

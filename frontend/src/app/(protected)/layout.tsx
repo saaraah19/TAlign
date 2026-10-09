@@ -3,7 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/features/auth";
+import { CompassPanelProvider } from "@/components/compass-panel";
 import { NavBar } from "@/components/nav-bar";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /**
  * Shared shell for every route under (protected). Two things this
@@ -28,13 +30,23 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   }, [isLoading, user, router]);
 
   if (isLoading || !user) {
-    return <main className="min-h-screen bg-paper p-8 text-sm text-ink/50">Loading…</main>;
+    return (
+      <main className="min-h-screen bg-paper">
+        <div className="mx-auto max-w-content px-6 py-5 sm:px-8">
+          <Skeleton className="h-6 w-28" />
+          <Skeleton className="mt-12 h-9 w-72" />
+          <Skeleton className="mt-8 h-64 w-full" />
+        </div>
+      </main>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-paper">
-      <NavBar />
-      {children}
-    </div>
+    <CompassPanelProvider>
+      <div className="min-h-screen bg-paper">
+        <NavBar />
+        {children}
+      </div>
+    </CompassPanelProvider>
   );
 }

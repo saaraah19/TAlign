@@ -38,10 +38,11 @@ export const leaveRequestsApi = {
 
   // --- Admin/hiring-manager-facing (approval queue) ---
 
-  listPipeline: (params?: { status?: LeaveRequestStatus; page?: number }) => {
+  listPipeline: (params?: { status?: LeaveRequestStatus; page?: number; pageSize?: number }) => {
     const query = new URLSearchParams();
     if (params?.status) query.set("status", params.status);
     if (params?.page) query.set("page", String(params.page));
+    if (params?.pageSize) query.set("page_size", String(params.pageSize));
     const qs = query.toString();
     return apiFetch<LeaveRequestPipelineListResponse>(`/leave-requests${qs ? `?${qs}` : ""}`);
   },

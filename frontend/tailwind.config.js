@@ -32,9 +32,19 @@ module.exports = {
           "0%": { opacity: "0", transform: "translateY(8px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        "toast-in": {
+          "0%": { opacity: "0", transform: "translateY(12px) scale(0.98)" },
+          "100%": { opacity: "1", transform: "translateY(0) scale(1)" },
+        },
+        "panel-in": {
+          "0%": { opacity: "0", transform: "translateY(-8px) scale(0.985)" },
+          "100%": { opacity: "1", transform: "translateY(0) scale(1)" },
+        },
       },
       animation: {
         "fade-up": "fade-up 0.6s ease-out both",
+        "toast-in": "toast-in 0.2s ease-out both",
+        "panel-in": "panel-in 0.16s ease-out both",
       },
     },
   },

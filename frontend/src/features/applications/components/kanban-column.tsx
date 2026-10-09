@@ -1,8 +1,18 @@
 "use client";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import { usePipeline } from "../hooks/use-applications";
 import type { ApplicationStatus } from "../types";
 import { KanbanCard } from "./kanban-card";
+
+// What an empty column is *for* — more useful than a bare "No candidates here".
+const EMPTY_HINTS: Partial<Record<ApplicationStatus, string>> = {
+  applied: "New applications land here",
+  screening: "Move candidates here once you've reviewed them",
+  interview: "Candidates you're interviewing",
+  offer: "Candidates with an offer out",
+  hired: "Hired candidates appear here",
+};
 
 export function KanbanColumn({
   status,
@@ -31,10 +41,17 @@ export function KanbanColumn({
       </div>
 
       <div className="flex flex-col gap-2.5">
-        {isLoading && <p className="px-1 text-xs text-ink/35">Loading…</p>}
+        {isLoading && (
+          <>
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </>
+        )}
         {!isLoading && items.length === 0 && (
           <div className="rounded-lg border border-dashed border-line px-3 py-8 text-center">
-            <p className="text-xs text-ink/35">No candidates here</p>
+            <p className="text-xs text-ink/35">
+              {search ? "No candidate matches" : (EMPTY_HINTS[status] ?? "No candidates here")}
+            </p>
           </div>
         )}
         {items.map((app) => (

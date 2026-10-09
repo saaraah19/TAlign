@@ -64,7 +64,12 @@ export function ActivityFeed({
     <Card className="p-6">
       <h2 className="text-sm font-medium text-ink">Recent activity</h2>
       {items.length === 0 ? (
-        <p className="mt-3 text-sm text-ink/45">Nothing here yet.</p>
+        <div className="mt-3">
+          <p className="text-sm text-ink/60">No activity yet</p>
+          <p className="mt-1 text-xs leading-relaxed text-ink/40">
+            Applications, resume analyses and hires will show up here as they happen.
+          </p>
+        </div>
       ) : (
         <ul className="mt-4 flex flex-col gap-3.5">
           {items.slice(0, 8).map((item) => (

@@ -3,10 +3,15 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
+import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api-client";
 import { formatRelativeTime } from "@/lib/format-relative-time";
 import { useMoveApplicationStage } from "../hooks/use-applications";
-import { APPLICATION_CAN_REJECT, APPLICATION_FORWARD_TRANSITIONS } from "../types";
+import {
+  APPLICATION_CAN_REJECT,
+  APPLICATION_FORWARD_TRANSITIONS,
+  APPLICATION_STATUS_LABELS,
+} from "../types";
 import type { ApplicationStatus, ApplicationWithScore } from "../types";
 
 function scoreColor(score: number): string {
@@ -17,6 +22,7 @@ function scoreColor(score: number): string {
 
 export function KanbanCard({ application }: { application: ApplicationWithScore }) {
   const move = useMoveApplicationStage();
+  const toast = useToast();
   const [error, setError] = useState<string | null>(null);
   const nextStage = APPLICATION_FORWARD_TRANSITIONS[application.status];
   const canReject = APPLICATION_CAN_REJECT[application.status];
@@ -27,6 +33,11 @@ export function KanbanCard({ application }: { application: ApplicationWithScore 
     setError(null);
     try {
       await move.mutateAsync({ applicationId: application.id, targetStatus });
+      toast.success(
+        targetStatus === "rejected"
+          ? `${application.candidate.first_name} rejected`
+          : `${application.candidate.first_name} moved to ${APPLICATION_STATUS_LABELS[targetStatus]}`,
+      );
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not move this candidate.");
     }

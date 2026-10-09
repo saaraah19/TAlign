@@ -1,101 +1,76 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useParams } from "next/navigation";
 import {
   AnalysisDetail,
-  APPLICATION_CAN_REJECT,
-  APPLICATION_FORWARD_TRANSITIONS,
   APPLICATION_IS_TERMINAL,
-  APPLICATION_STATUS_LABELS,
-  ApplicationStatusBadge,
   useApplication,
-  useTransitionApplication,
-  type ApplicationStatus,
 } from "@/features/applications";
+import { CandidateActivity } from "@/features/applications/components/workspace/candidate-activity";
+import { CandidateHeader } from "@/features/applications/components/workspace/candidate-header";
+import { StageActions } from "@/features/applications/components/workspace/stage-actions";
+import { StageJourney } from "@/features/applications/components/workspace/stage-journey";
 import { CommunicationPanel } from "@/features/communication";
-import { CompassAsk } from "@/features/compass";
+import { ANALYSIS_SUGGESTIONS, CompassAsk } from "@/features/compass";
 import { HireWorkflowPanel } from "@/features/employees";
-import { ApiError } from "@/lib/api-client";
 
+/**
+ * The candidate workspace. Main column = what you read and write
+ * (the assessment, the emails); right rail = what you act with (stage,
+ * Compass, workflow, activity). The rail scrolls on its own on large
+ * screens so Compass stays in reach while you read a long analysis.
+ */
 export default function ApplicationDetailPage() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
   const { data: application, isLoading, error } = useApplication(params.id);
-  const transition = useTransitionApplication(params.id);
-  const [transitionError, setTransitionError] = useState<string | null>(null);
 
-  if (isLoading) return <main className="p-8 text-sm text-gray-500">Loading…</main>;
-  if (error || !application) {
-    return <main className="p-8 text-sm text-red-600">Could not load this application.</main>;
+  if (isLoading) {
+    return (
+      <main className="mx-auto max-w-content px-6 py-8 sm:px-8">
+        <div className="h-16 w-80 animate-pulse rounded-lg bg-ink/[0.05]" />
+        <div className="mt-8 h-64 animate-pulse rounded-lg bg-ink/[0.05]" />
+      </main>
+    );
   }
-
-  const nextStage = APPLICATION_FORWARD_TRANSITIONS[application.status];
-  const canReject = APPLICATION_CAN_REJECT[application.status];
-
-  async function handleTransition(target: ApplicationStatus) {
-    setTransitionError(null);
-    try {
-      await transition.mutateAsync(target);
-    } catch (err) {
-      setTransitionError(err instanceof ApiError ? err.message : "Update failed.");
-    }
+  if (error || !application) {
+    return (
+      <main className="mx-auto max-w-content px-6 py-8 text-sm text-red-600 sm:px-8">
+        Could not load this application.
+      </main>
+    );
   }
 
   return (
-    <main className="mx-auto max-w-2xl p-6 sm:p-8">
-      <button onClick={() => router.back()} className="text-xs text-gray-400 underline">
-        ← Back
-      </button>
+    <main className="mx-auto max-w-content px-6 py-8 sm:px-8">
+      <CandidateHeader application={application} />
 
-      <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">
-            {application.candidate.first_name} {application.candidate.last_name}
-          </h1>
-          <p className="text-sm text-gray-500">
-            {application.candidate.email} · {application.job.title}
-          </p>
-        </div>
-        <ApplicationStatusBadge status={application.status} />
-      </div>
-
-      <div className="mt-4 flex flex-wrap gap-3">
-        {nextStage && (
-          <button
-            onClick={() => handleTransition(nextStage)}
-            disabled={transition.isPending}
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            Move to {APPLICATION_STATUS_LABELS[nextStage]}
-          </button>
-        )}
-        {canReject && (
-          <button
-            onClick={() => handleTransition("rejected")}
-            disabled={transition.isPending}
-            className="rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-600 disabled:opacity-50"
-          >
-            Reject
-          </button>
-        )}
-      </div>
-      {transitionError && <p className="mt-2 text-sm text-red-600">{transitionError}</p>}
-
-      <div className="mt-8 flex flex-col gap-6">
-        <div>
-          <h2 className="mb-3 text-sm font-medium text-gray-900">Resume Intelligence</h2>
+      <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="flex min-w-0 flex-col gap-10">
           <AnalysisDetail applicationId={application.id} />
+          <CommunicationPanel
+            applicationId={application.id}
+            isTerminal={APPLICATION_IS_TERMINAL[application.status]}
+          />
         </div>
 
-        <HireWorkflowPanel applicationId={application.id} enabled={application.status === "hired"} />
+        <aside className="flex flex-col gap-4 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start lg:overflow-y-auto">
+          <div className="rounded-lg border border-line bg-white p-5">
+            <p className="mb-4 text-sm font-medium text-ink">Pipeline</p>
+            <StageJourney status={application.status} />
+            <div className="mt-5">
+              <StageActions applicationId={application.id} status={application.status} />
+            </div>
+          </div>
 
-        <CommunicationPanel
-          applicationId={application.id}
-          isTerminal={APPLICATION_IS_TERMINAL[application.status]}
-        />
+          <CompassAsk applicationId={application.id} suggestions={ANALYSIS_SUGGESTIONS} />
 
-        <CompassAsk applicationId={application.id} />
+          <HireWorkflowPanel
+            applicationId={application.id}
+            enabled={application.status === "hired"}
+          />
+
+          <CandidateActivity application={application} />
+        </aside>
       </div>
     </main>
   );

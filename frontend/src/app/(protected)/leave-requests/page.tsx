@@ -8,14 +8,14 @@ export default function LeaveRequestsPage() {
   if (!user) return null; // guaranteed non-null by (protected)/layout.tsx
 
   return (
-    <main className="mx-auto max-w-3xl p-6 sm:p-8">
-      <h1 className="text-xl font-semibold">Leave requests</h1>
-      <p className="mt-1 text-sm text-gray-500">
-        Approval routes to any admin or hiring manager — there&apos;s no individual manager
+    <main className="mx-auto max-w-4xl px-6 py-8 sm:px-8">
+      <h1 className="text-2xl font-semibold tracking-tight text-ink">Leave requests</h1>
+      <p className="mt-1 text-sm text-ink/55">
+        Any admin or hiring manager can review these — there&apos;s no individual manager
         assignment in this MVP.
       </p>
 
-      <div className="mt-6">
+      <div className="mt-8">
         <LeaveApprovalQueue />
       </div>
     </main>

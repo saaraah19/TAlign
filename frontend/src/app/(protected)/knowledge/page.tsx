@@ -1,12 +1,11 @@
 "use client";
 
 import { useAuth } from "@/features/auth";
-import { CompassAsk } from "@/features/compass";
-import { DocumentList, DocumentUpload } from "@/features/knowledge";
+import { KnowledgeCenter } from "@/features/knowledge";
 
 // Read access mirrors the backend's knowledge_query Compass capability
-// scope (ADMIN/RECRUITER/HIRING_MANAGER) — see app/api/v1/knowledge.py's
-// module docstring on the backend for why this list, not just ADMIN.
+// scope (ADMIN/RECRUITER/HIRING_MANAGER/EMPLOYEE) — see
+// app/api/v1/knowledge.py's module docstring on the backend.
 const READ_ROLES = ["admin", "recruiter", "hiring_manager", "employee"];
 
 export default function KnowledgePage() {
@@ -18,33 +17,23 @@ export default function KnowledgePage() {
 
   if (!canRead) {
     return (
-      <main className="mx-auto max-w-3xl p-6 sm:p-8">
-        <p className="text-sm text-gray-500">
-          The Knowledge Center isn't available for your role yet.
+      <main className="mx-auto max-w-4xl px-6 py-8 sm:px-8">
+        <p className="text-sm text-ink/50">
+          The Knowledge Center isn&apos;t available for your role yet.
         </p>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto max-w-3xl p-6 sm:p-8">
-      <h1 className="text-xl font-semibold">Knowledge Center</h1>
-      <p className="mt-1 text-sm text-gray-500">
+    <main className="mx-auto max-w-4xl px-6 py-8 sm:px-8">
+      <h1 className="text-2xl font-semibold tracking-tight text-ink">Knowledge Center</h1>
+      <p className="mt-1 text-sm text-ink/55">
         Company policies, benefits, and procedures Compass can answer questions from.
       </p>
 
-      {canManage && (
-        <div className="mt-6">
-          <DocumentUpload />
-        </div>
-      )}
-
-      <div className="mt-6">
-        <DocumentList canManage={canManage} />
-      </div>
-
-      <div className="mt-6">
-        <CompassAsk />
+      <div className="mt-8">
+        <KnowledgeCenter canManage={canManage} />
       </div>
     </main>
   );

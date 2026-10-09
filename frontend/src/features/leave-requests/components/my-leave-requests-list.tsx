@@ -1,5 +1,8 @@
 "use client";
 
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api-client";
 import { useCancelMyLeaveRequest, useMyLeaveRequests } from "../hooks/use-leave-requests";
 import { LEAVE_TYPE_LABELS } from "../types";
@@ -8,20 +11,34 @@ import { LeaveStatusBadge } from "./leave-status-badge";
 export function MyLeaveRequestsList() {
   const { data, isLoading, error } = useMyLeaveRequests();
   const cancelLeaveRequest = useCancelMyLeaveRequest();
+  const toast = useToast();
 
-  if (isLoading) return <p className="text-sm text-gray-500">Loading your leave requests…</p>;
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-3">
+        <Skeleton className="h-14 w-full" />
+        <Skeleton className="h-14 w-full" />
+      </div>
+    );
+  }
   if (error) return <p className="text-sm text-red-600">Could not load your leave requests.</p>;
   if (!data || data.items.length === 0) {
-    return <p className="text-sm text-gray-500">You haven&apos;t requested any leave yet.</p>;
+    return (
+      <EmptyState
+        title="No leave requests yet"
+        description="Use the form above to request time off — you'll follow its status here."
+      />
+    );
   }
 
   async function handleCancel(id: string) {
     try {
       await cancelLeaveRequest.mutateAsync(id);
+      toast.success("Leave request cancelled");
     } catch (err) {
-      // Surfaced inline rather than a toast — this codebase doesn't have
-      // a toast system yet; matches ApplyButton's own error handling.
-      alert(err instanceof ApiError ? err.message : "Could not cancel this request.");
+      // A list row has no natural spot for an inline message, so this
+      // is the one place an error uses a toast (it replaced alert()).
+      toast.error(err instanceof ApiError ? err.message : "Could not cancel this request.");
     }
   }
 

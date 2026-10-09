@@ -1,5 +1,6 @@
 "use client";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -19,7 +20,12 @@ export default function ApplyToJobPage() {
     }
   }, [authLoading, user, router, params.id]);
 
-  if (authLoading || !user) return <main className="p-8 text-sm text-gray-500">Loading…</main>;
+  if (authLoading || !user) return (
+      <main className="mx-auto max-w-3xl p-6 sm:p-8">
+      <Skeleton className="h-7 w-64" />
+      <Skeleton className="mt-6 h-40 w-full" />
+    </main>
+    );
 
   if (user.account_type !== "candidate") {
     return (
@@ -29,7 +35,12 @@ export default function ApplyToJobPage() {
     );
   }
 
-  if (jobLoading) return <main className="p-8 text-sm text-gray-500">Loading…</main>;
+  if (jobLoading) return (
+      <main className="mx-auto max-w-3xl p-6 sm:p-8">
+      <Skeleton className="h-7 w-64" />
+      <Skeleton className="mt-6 h-40 w-full" />
+    </main>
+    );
   if (jobError || !job) {
     return (
       <main className="p-8 text-sm text-red-600">

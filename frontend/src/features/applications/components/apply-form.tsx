@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMyResumes, useUploadResume } from "@/features/resumes";
+import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api-client";
 import { applicationsApi } from "../api";
 
@@ -22,6 +23,7 @@ import { applicationsApi } from "../api";
 export function ApplyForm({ jobId }: { jobId: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const { data: resumes, isLoading: resumesLoading } = useMyResumes();
   const uploadResume = useUploadResume();
 
@@ -53,6 +55,7 @@ export function ApplyForm({ jobId }: { jobId: string }) {
       const application = await applicationsApi.apply(jobId);
       await applicationsApi.attachResume(application.id, selectedResumeId);
       queryClient.invalidateQueries({ queryKey: ["applications", "mine"] });
+      toast.success("Application submitted");
       router.push(`/applications/${application.id}`);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {

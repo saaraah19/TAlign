@@ -104,3 +104,19 @@ class JobListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class PublicJobListResponse(BaseModel):
+    """
+    The candidate-facing job list. Deliberately NOT `JobListResponse`:
+    that one carries `JobWithStatsRead` items (applicant counts, per-stage
+    counts) which are recruiter-only data. Keeping the public response a
+    separate type means those fields are structurally absent — they can't
+    leak by someone forgetting to strip them, and the public endpoint can't
+    be broken again by a change to the recruiter's list.
+    """
+
+    items: list[JobRead]
+    total: int
+    page: int
+    page_size: int

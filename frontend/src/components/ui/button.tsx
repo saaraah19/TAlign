@@ -27,6 +27,15 @@ const SIZE_CLASSES: Record<Size, string> = {
   md: "px-4 py-2.5 text-sm",
 };
 
+/**
+ * The same look as <Button>, for an element that must stay a link
+ * (<a> inside <button>, or the reverse, is invalid HTML and confuses
+ * assistive tech): `<Link className={buttonClasses("primary", "sm")}>`.
+ */
+export function buttonClasses(variant: Variant = "primary", size: Size = "md"): string {
+  return `inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors duration-150 ${VARIANT_CLASSES[variant]} ${SIZE_CLASSES[size]}`;
+}
+
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
   size?: Size;

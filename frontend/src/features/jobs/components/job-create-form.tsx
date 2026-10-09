@@ -3,12 +3,14 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api-client";
 import { useCreateJob } from "../hooks/use-jobs";
 import { CURRENCY_LABELS, jobCreateSchema, type JobCreateInput } from "../types";
 
 export function JobCreateForm({ onSuccess }: { onSuccess?: (jobId: string) => void }) {
   const createJob = useCreateJob();
+  const toast = useToast();
   const [serverError, setServerError] = useState<string | null>(null);
   const {
     register,
@@ -20,6 +22,7 @@ export function JobCreateForm({ onSuccess }: { onSuccess?: (jobId: string) => vo
     setServerError(null);
     try {
       const job = await createJob.mutateAsync(values);
+      toast.success("Job created");
       onSuccess?.(job.id);
     } catch (err) {
       setServerError(err instanceof ApiError ? err.message : "Something went wrong.");

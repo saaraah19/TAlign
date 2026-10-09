@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { buttonClasses } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useJobs } from "../hooks/use-jobs";
 import type { JobStatus } from "../types";
 import { JobCard } from "./job-card";
@@ -53,25 +55,31 @@ export function JobList({ canCreate }: { canCreate: boolean }) {
         />
       </div>
 
-      {isLoading && <p className="text-sm text-ink/50">Loading jobs…</p>}
+      {isLoading && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-32 w-full" />
+          ))}
+        </div>
+      )}
       {error && <p className="text-sm text-red-600">Could not load jobs.</p>}
 
       {data && filtered.length === 0 && (
-        <div className="rounded-lg border border-dashed border-line px-6 py-14 text-center">
-          <p className="text-sm font-medium text-ink">
-            {search ? "No jobs match your search" : "No jobs in this view yet"}
-          </p>
-          <p className="mx-auto mt-1.5 max-w-xs text-sm text-ink/45">
-            {search
+        <EmptyState
+          title={search ? "No jobs match your search" : "No jobs in this view yet"}
+          description={
+            search
               ? "Try a different title, or switch tabs."
-              : "Once you create a role, candidates can apply and Compass starts scoring them automatically."}
-          </p>
-          {!search && canCreate && (
-            <Link href="/jobs/new" className="mt-5 inline-block">
-              <Button size="sm">Create a job</Button>
-            </Link>
-          )}
-        </div>
+              : "Once you create a role, candidates can apply and Compass starts scoring them automatically."
+          }
+          action={
+            !search && canCreate ? (
+              <Link href="/jobs/new" className={buttonClasses("primary", "sm")}>
+                Create a job
+              </Link>
+            ) : undefined
+          }
+        />
       )}
 
       {filtered.length > 0 && (

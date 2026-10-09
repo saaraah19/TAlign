@@ -1,182 +1,180 @@
 "use client";
 
 import { useState } from "react";
+import { AIMark } from "@/components/ui/ai-mark";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api-client";
 import { useAnalysis, useAnalysisStatus, useReanalyze } from "../hooks/use-applications";
-import { ANALYSIS_PROGRESS_LABELS, type SkillMatch } from "../types";
+import { ANALYSIS_PROGRESS_LABELS } from "../types";
+import { DimensionBars } from "./analysis/dimension-bars";
+import { ExperienceFitCard } from "./analysis/experience-fit-card";
+import { Insights } from "./analysis/insights";
+import { ScoreGauge } from "./analysis/score-gauge";
+import { SkillEvidenceList } from "./analysis/skill-evidence-list";
 
-const MATCH_STYLES: Record<SkillMatch["match_state"], string> = {
-  matched: "bg-green-100 text-green-700",
-  not_matched: "bg-red-100 text-red-700",
-  insufficient_evidence: "bg-gray-100 text-gray-600",
-};
-
-const MATCH_LABELS: Record<SkillMatch["match_state"], string> = {
-  matched: "Matched",
-  not_matched: "Not matched",
-  insufficient_evidence: "Insufficient evidence",
-};
-
-function SkillRow({ match }: { match: SkillMatch }) {
+function SectionTitle() {
   return (
-    <li className="flex items-start justify-between gap-3 py-1.5 text-sm">
-      <div>
-        <span className="font-medium text-gray-900">{match.skill}</span>
-        {match.evidence && <p className="text-xs text-gray-500">{match.evidence}</p>}
-      </div>
-      <span
-        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${MATCH_STYLES[match.match_state]}`}
-      >
-        {MATCH_LABELS[match.match_state]}
-      </span>
-    </li>
-  );
-}
-
-function DimensionBar({ label, pct }: { label: string; pct: number | null }) {
-  return (
-    <div>
-      <div className="flex justify-between text-xs text-gray-500">
-        <span>{label}</span>
-        <span>{pct === null ? "N/A" : `${Math.round(pct)}%`}</span>
-      </div>
-      <div className="mt-1 h-1.5 w-full rounded-full bg-gray-100">
-        <div className="h-1.5 rounded-full bg-gray-900" style={{ width: `${pct ?? 0}%` }} />
-      </div>
+    <div className="flex items-center gap-2">
+      <AIMark className="h-4 w-4 text-accent" />
+      <h2 className="text-sm font-medium text-ink">Resume Intelligence</h2>
     </div>
   );
 }
 
+function StateCard({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-4">
+      <SectionTitle />
+      <div className="rounded-lg border border-line bg-white p-6">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * The recruiter's view of a resume analysis. This component owns the
+ * *states* (loading / no resume / in progress / failed / complete);
+ * each visual block of the complete state lives in ./analysis/ so no
+ * single file grows past one idea. Everything shown comes straight
+ * from the ResumeAnalysis the backend already returns — no figure
+ * here is computed or invented on the client.
+ */
 export function AnalysisDetail({ applicationId }: { applicationId: string }) {
   const { data: statusData } = useAnalysisStatus(applicationId);
   const isComplete = statusData?.status === "complete";
   const { data: analysis, isLoading } = useAnalysis(applicationId, isComplete);
   const reanalyze = useReanalyze(applicationId);
+  const toast = useToast();
   const [reanalyzeError, setReanalyzeError] = useState<string | null>(null);
 
   async function handleReanalyze() {
     setReanalyzeError(null);
     try {
       await reanalyze.mutateAsync();
+      toast.info("Re-analysis started");
     } catch (err) {
       setReanalyzeError(err instanceof ApiError ? err.message : "Could not start re-analysis.");
     }
   }
 
-  if (!statusData) return <p className="text-sm text-gray-500">Loading…</p>;
+  if (!statusData) {
+    return (
+      <StateCard>
+        <div className="h-32 animate-pulse rounded-md bg-ink/[0.05]" />
+      </StateCard>
+    );
+  }
 
   if (statusData.status === "not_started") {
-    return <p className="text-sm text-gray-500">No resume has been attached yet.</p>;
+    return (
+      <StateCard>
+        <p className="text-sm font-medium text-ink">No resume to analyze yet</p>
+        <p className="mt-1 text-sm text-ink/55">
+          The candidate hasn&apos;t attached a resume to this application. Once they do, Compass
+          will read it and score the alignment with this role.
+        </p>
+      </StateCard>
+    );
   }
+
   if (statusData.status === "parsing" || statusData.status === "analyzing") {
     return (
-      <div className="flex items-center gap-2 text-sm text-gray-600">
-        <span className="h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-gray-900" />
-        {ANALYSIS_PROGRESS_LABELS[statusData.status]}
-      </div>
+      <StateCard>
+        <div className="flex items-center gap-3 text-sm text-ink/70">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-line border-t-ink" />
+          {ANALYSIS_PROGRESS_LABELS[statusData.status]}
+        </div>
+      </StateCard>
     );
   }
+
   if (statusData.status === "failed") {
     return (
-      <div className="flex flex-col gap-2">
-        <p className="text-sm text-red-600">
-          Analysis failed. This can happen if the resume could not be read or the AI provider
-          was unavailable.
+      <StateCard>
+        <p className="text-sm font-medium text-red-600">Analysis failed</p>
+        <p className="mt-1 text-sm text-ink/55">
+          This can happen if the resume could not be read or the AI provider was unavailable.
         </p>
-        <button
+        {reanalyzeError && <p className="mt-2 text-sm text-red-600">{reanalyzeError}</p>}
+        <Button
+          variant="secondary"
+          size="sm"
+          className="mt-4"
           onClick={handleReanalyze}
           disabled={reanalyze.isPending}
-          className="w-fit rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium disabled:opacity-50"
         >
           {reanalyze.isPending ? "Retrying…" : "Try again"}
-        </button>
-      </div>
+        </Button>
+      </StateCard>
     );
   }
 
-  if (isLoading || !analysis) return <p className="text-sm text-gray-500">Loading analysis…</p>;
+  if (isLoading || !analysis) {
+    return (
+      <StateCard>
+        <div className="h-32 animate-pulse rounded-md bg-ink/[0.05]" />
+      </StateCard>
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-5">
-      <div>
-        <div className="flex items-baseline justify-between">
-          <p className="text-sm text-gray-500">
-            Alignment score — an analytical signal to help you evaluate this candidate, not a
-            hiring decision.
-          </p>
-          <p className="text-2xl font-semibold text-gray-900">
-            {analysis.overall_score ?? "—"}
-            <span className="text-sm font-normal text-gray-400">/100</span>
-          </p>
-        </div>
+    <div className="flex flex-col gap-4">
+      <SectionTitle />
 
-        <div className="mt-3 flex flex-col gap-2">
-          <DimensionBar label="Required skills" pct={analysis.required_skills_score_pct} />
-          <DimensionBar label="Preferred skills" pct={analysis.preferred_skills_score_pct} />
-          <DimensionBar label="Experience" pct={analysis.experience_score_pct} />
+      <div className="rounded-lg border border-line bg-white p-6">
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-10">
+          <ScoreGauge score={analysis.overall_score} />
+          <div className="flex-1">
+            <DimensionBars
+              required={analysis.required_skills_score_pct}
+              preferred={analysis.preferred_skills_score_pct}
+              experience={analysis.experience_score_pct}
+            />
+            <p className="mt-4 text-xs leading-relaxed text-ink/40">
+              An analytical signal to help you evaluate this candidate — not a hiring decision.
+            </p>
+          </div>
         </div>
       </div>
 
       {analysis.explanation && (
-        <p className="rounded-md bg-gray-50 p-3 text-sm text-gray-700">{analysis.explanation}</p>
+        <div className="rounded-lg bg-ink p-5">
+          <div className="flex items-center gap-2">
+            <AIMark className="h-3.5 w-3.5 text-accent-light" />
+            <p className="text-xs font-medium uppercase tracking-wide text-white/50">
+              Compass assessment
+            </p>
+          </div>
+          <p className="mt-2.5 text-sm leading-relaxed text-white/85">{analysis.explanation}</p>
+        </div>
       )}
 
-      <div>
-        <p className="text-sm font-medium text-gray-900">Required skills</p>
-        <ul className="mt-1 divide-y divide-gray-100">
-          {analysis.required_skills_result.map((m) => (
-            <SkillRow key={m.skill} match={m} />
-          ))}
-        </ul>
+      <ExperienceFitCard fit={analysis.experience_fit} />
+
+      <div className="flex flex-col gap-6 rounded-lg border border-line bg-white p-5">
+        <SkillEvidenceList title="Required skills" matches={analysis.required_skills_result} />
+        <SkillEvidenceList title="Preferred skills" matches={analysis.preferred_skills_result} />
       </div>
 
-      {analysis.preferred_skills_result.length > 0 && (
-        <div>
-          <p className="text-sm font-medium text-gray-900">Preferred skills</p>
-          <ul className="mt-1 divide-y divide-gray-100">
-            {analysis.preferred_skills_result.map((m) => (
-              <SkillRow key={m.skill} match={m} />
-            ))}
-          </ul>
-        </div>
-      )}
+      <Insights strengths={analysis.strengths} concerns={analysis.potential_concerns} />
 
-      {analysis.strengths.length > 0 && (
-        <div>
-          <p className="text-sm font-medium text-gray-900">Strengths</p>
-          <ul className="mt-1 list-inside list-disc text-sm text-gray-700">
-            {analysis.strengths.map((s) => (
-              <li key={s}>{s}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {analysis.potential_concerns.length > 0 && (
-        <div>
-          <p className="text-sm font-medium text-gray-900">Potential concerns</p>
-          <ul className="mt-1 list-inside list-disc text-sm text-gray-700">
-            {analysis.potential_concerns.map((c) => (
-              <li key={c}>{c}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      <div className="border-t border-gray-100 pt-3">
-        {reanalyzeError && <p className="mb-2 text-sm text-red-600">{reanalyzeError}</p>}
-        <button
-          onClick={handleReanalyze}
-          disabled={reanalyze.isPending}
-          className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium disabled:opacity-50"
-        >
-          {reanalyze.isPending ? "Starting…" : "Re-analyze"}
-        </button>
-        <p className="mt-2 text-xs text-gray-400">
-          Analyzed{" "}
-          {analysis.analyzed_at ? new Date(analysis.analyzed_at).toLocaleString() : "—"} · Scoring
-          v{analysis.scoring_algorithm_version} · {analysis.llm_provider}/{analysis.llm_model}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs text-ink/40">
+          Analyzed {analysis.analyzed_at ? new Date(analysis.analyzed_at).toLocaleString() : "—"} ·
+          Scoring v{analysis.scoring_algorithm_version} · {analysis.llm_provider}/
+          {analysis.llm_model}
         </p>
+        <div className="flex items-center gap-3">
+          {reanalyzeError && <p className="text-xs text-red-600">{reanalyzeError}</p>}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleReanalyze}
+            disabled={reanalyze.isPending}
+          >
+            {reanalyze.isPending ? "Starting…" : "Re-analyze"}
+          </Button>
+        </div>
       </div>
     </div>
   );

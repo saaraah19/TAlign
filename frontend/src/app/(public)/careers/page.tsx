@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { EMPLOYMENT_TYPE_LABELS, usePublicJobs } from "@/features/jobs";
 
 export default function CareersPage() {
@@ -14,10 +16,19 @@ export default function CareersPage() {
       </p>
 
       <div className="mt-6">
-        {isLoading && <p className="text-sm text-gray-500">Loading…</p>}
+        {isLoading && (
+          <div className="flex flex-col gap-3">
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
+          </div>
+        )}
         {error && <p className="text-sm text-red-600">Could not load jobs.</p>}
         {data && data.items.length === 0 && (
-          <p className="text-sm text-gray-500">No open positions right now.</p>
+          <EmptyState
+            title="No open positions right now"
+            description="New roles appear here as soon as companies publish them, so it's worth checking back."
+          />
         )}
         {data && data.items.length > 0 && (
           <ul className="divide-y divide-gray-200 rounded-lg border border-gray-200">

@@ -2,10 +2,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { knowledgeApi } from "../api";
 import { isDocumentProcessing, type DocumentCategory } from "../types";
 
-const documentsKey = (params?: { category?: DocumentCategory; page?: number }) =>
+const documentsKey = (params?: { category?: DocumentCategory; page?: number; pageSize?: number }) =>
   ["knowledge", "documents", params] as const;
 
-export function useKnowledgeDocuments(params?: { category?: DocumentCategory; page?: number }) {
+export function useKnowledgeDocuments(params?: { category?: DocumentCategory; page?: number; pageSize?: number }) {
   return useQuery({
     queryKey: documentsKey(params),
     queryFn: () => knowledgeApi.list(params),

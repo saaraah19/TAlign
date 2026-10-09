@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api-client";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useDeleteJob, useJob, useTransitionJob } from "../hooks/use-jobs";
 import {
   CURRENCY_SYMBOLS,
@@ -15,9 +17,17 @@ export function JobDetail({ jobId, onDeleted }: { jobId: string; onDeleted?: () 
   const { data: job, isLoading, error } = useJob(jobId);
   const transitionJob = useTransitionJob(jobId);
   const deleteJob = useDeleteJob();
+  const toast = useToast();
   const [actionError, setActionError] = useState<string | null>(null);
 
-  if (isLoading) return <p className="text-sm text-gray-500">Loading…</p>;
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Skeleton className="h-7 w-64" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    );
+  }
   if (error || !job) return <p className="text-sm text-red-600">Could not load this job.</p>;
 
   // The UI reads the same transition graph the backend enforces — it
@@ -31,6 +41,7 @@ export function JobDetail({ jobId, onDeleted }: { jobId: string; onDeleted?: () 
     setActionError(null);
     try {
       await transitionJob.mutateAsync(nextStatus);
+      toast.success(`Job is now ${JOB_STATUS_LABELS[nextStatus].toLowerCase()}`);
     } catch (err) {
       // Logged in full so DevTools Console shows the real cause
       // directly — no more guessing from a generic fallback message.
@@ -49,6 +60,7 @@ export function JobDetail({ jobId, onDeleted }: { jobId: string; onDeleted?: () 
     setActionError(null);
     try {
       await deleteJob.mutateAsync(jobId);
+      toast.success("Job deleted");
       onDeleted?.();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Delete failed.");

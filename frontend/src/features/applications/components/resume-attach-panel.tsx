@@ -2,17 +2,20 @@
 
 import { useState } from "react";
 import { ResumePicker } from "@/features/resumes";
+import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api-client";
 import { useAttachResume } from "../hooks/use-applications";
 
 export function ResumeAttachPanel({ applicationId }: { applicationId: string }) {
   const attachResume = useAttachResume(applicationId);
+  const toast = useToast();
   const [error, setError] = useState<string | null>(null);
 
   async function handleAttach(resumeId: string) {
     setError(null);
     try {
       await attachResume.mutateAsync(resumeId);
+      toast.success("Resume attached");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not attach resume.");
     }

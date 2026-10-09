@@ -1,23 +1,35 @@
 "use client";
 
 import Link from "next/link";
+import { buttonClasses } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useMyApplications } from "../hooks/use-applications";
 import { ApplicationStatusBadge } from "./application-status-badge";
 
 export function MyApplicationsList() {
   const { data, isLoading, error } = useMyApplications();
 
-  if (isLoading) return <p className="text-sm text-gray-500">Loading your applications…</p>;
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-3">
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+      </div>
+    );
+  }
   if (error) return <p className="text-sm text-red-600">Could not load your applications.</p>;
   if (!data || data.items.length === 0) {
     return (
-      <p className="text-sm text-gray-500">
-        You haven&apos;t applied to any jobs yet — browse open positions on{" "}
-        <a href="/careers" className="underline">
-          Careers
-        </a>
-        .
-      </p>
+      <EmptyState
+        title="No applications yet"
+        description="When you apply to a role, you can follow each step of the process right here."
+        action={
+          <Link href="/careers" className={buttonClasses("primary", "sm")}>
+            Browse open positions
+          </Link>
+        }
+      />
     );
   }
 

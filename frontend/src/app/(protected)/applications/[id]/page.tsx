@@ -1,5 +1,6 @@
 "use client";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import { useParams } from "next/navigation";
 import {
   AnalysisProgressIndicator,
@@ -16,7 +17,12 @@ export default function MyApplicationDetailPage() {
   const { data, isLoading } = useMyApplications();
 
   if (isLoading) {
-    return <main className="p-8 text-sm text-gray-500">Loading…</main>;
+    return (
+      <main className="mx-auto max-w-3xl p-6 sm:p-8">
+      <Skeleton className="h-7 w-64" />
+      <Skeleton className="mt-6 h-40 w-full" />
+    </main>
+    );
   }
 
   const application = data?.items.find((a) => a.id === params.id);

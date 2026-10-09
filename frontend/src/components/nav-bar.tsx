@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { AIMark } from "@/components/ui/ai-mark";
+import { useCompassPanel } from "@/components/compass-panel";
 import { Avatar } from "@/components/ui/avatar";
 import { useAuth } from "@/features/auth";
 import { isPlainEmployee } from "@/lib/roles";
@@ -61,6 +62,7 @@ export function NavBar() {
   const router = useRouter();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const compass = useCompassPanel();
 
   if (!user) return null;
 
@@ -108,6 +110,19 @@ export function NavBar() {
         </div>
 
         <div className="hidden items-center gap-3 sm:flex">
+          {compass.canAsk && (
+            <button
+              type="button"
+              onClick={compass.open}
+              className="flex items-center gap-2 rounded-md border border-line bg-white px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:border-ink/30 hover:text-ink"
+            >
+              <AIMark className="h-3.5 w-3.5 text-accent" />
+              Ask Compass
+              <kbd className="rounded border border-line px-1.5 py-0.5 text-[10px] text-ink/40">
+                {compass.shortcutLabel}
+              </kbd>
+            </button>
+          )}
           <div className="flex items-center gap-2 border-l border-line pl-3">
             <Avatar firstName={user.first_name} lastName={user.last_name} />
             <span className="text-sm text-ink/60">{user.first_name}</span>
@@ -163,6 +178,19 @@ export function NavBar() {
               </Link>
             );
           })}
+          {compass.canAsk && (
+            <button
+              type="button"
+              onClick={() => {
+                setMobileOpen(false);
+                compass.open();
+              }}
+              className="flex items-center gap-2 rounded-md px-2 py-2 text-sm font-medium text-ink/55"
+            >
+              <AIMark className="h-3.5 w-3.5 text-accent" />
+              Ask Compass
+            </button>
+          )}
           <div className="mt-2 flex items-center justify-between border-t border-line pt-3">
             <div className="flex items-center gap-2">
               <Avatar firstName={user.first_name} lastName={user.last_name} />

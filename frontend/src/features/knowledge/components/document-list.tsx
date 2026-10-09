@@ -1,100 +1,100 @@
 "use client";
 
 import { useState } from "react";
-import { ApiError } from "@/lib/api-client";
-import {
-  useDeleteKnowledgeDocument,
-  useKnowledgeDocuments,
-  useReindexKnowledgeDocument,
-} from "../hooks/use-knowledge-documents";
-import { DOCUMENT_CATEGORY_LABELS } from "../types";
-import { DocumentStatusBadge } from "./document-status-badge";
+import { DOCUMENT_CATEGORY_LABELS, type DocumentCategory, type KnowledgeDocument } from "../types";
+import { DocumentRow } from "./document-row";
 
-export function DocumentList({ canManage }: { canManage: boolean }) {
-  const { data, isLoading, error } = useKnowledgeDocuments();
-  const deleteDocument = useDeleteKnowledgeDocument();
-  const reindexDocument = useReindexKnowledgeDocument();
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [pendingId, setPendingId] = useState<string | null>(null);
+const CATEGORY_ORDER: DocumentCategory[] = ["policy", "benefits", "procedure", "other"];
 
-  if (isLoading) return <p className="text-sm text-gray-500">Loading documents…</p>;
-  if (error) return <p className="text-sm text-red-600">Could not load documents.</p>;
-  if (!data || data.items.length === 0) {
-    return (
-      <p className="text-sm text-gray-500">
-        No documents yet — upload your first policy or handbook above.
-      </p>
-    );
-  }
+/**
+ * The document library, grouped by category. Purely presentational:
+ * it receives the documents already fetched by KnowledgeCenter and
+ * only decides how to arrange them. Category counts are counted from
+ * those same documents, so they can never disagree with what's listed.
+ */
+export function DocumentList({
+  documents,
+  canManage,
+}: {
+  documents: KnowledgeDocument[];
+  canManage: boolean;
+}) {
+  const [filter, setFilter] = useState<DocumentCategory | "all">("all");
 
-  async function handleDelete(documentId: string) {
-    setActionError(null);
-    setPendingId(documentId);
-    try {
-      await deleteDocument.mutateAsync(documentId);
-    } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : "Could not delete that document.");
-    } finally {
-      setPendingId(null);
-    }
-  }
+  const byCategory = CATEGORY_ORDER.map((category) => ({
+    category,
+    docs: documents.filter((d) => d.category === category),
+  })).filter((group) => group.docs.length > 0);
 
-  async function handleReindex(documentId: string) {
-    setActionError(null);
-    setPendingId(documentId);
-    try {
-      await reindexDocument.mutateAsync(documentId);
-    } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : "Could not reindex that document.");
-    } finally {
-      setPendingId(null);
-    }
-  }
+  // If the selected category empties out (its last document deleted),
+  // fall back to "all" instead of showing a blank library.
+  const activeFilter =
+    filter !== "all" && byCategory.some((g) => g.category === filter) ? filter : "all";
+  const visibleGroups =
+    activeFilter === "all" ? byCategory : byCategory.filter((g) => g.category === activeFilter);
 
   return (
-    <div className="flex flex-col gap-3">
-      <ul className="divide-y divide-gray-200 rounded-lg border border-gray-200">
-        {data.items.map((doc) => {
-          const isBusy = pendingId === doc.id;
-          return (
-            <li key={doc.id} className="flex items-center justify-between gap-3 px-4 py-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-gray-900">{doc.title}</p>
-                <p className="text-xs text-gray-500">
-                  {DOCUMENT_CATEGORY_LABELS[doc.category]} · {doc.original_filename}
-                </p>
-                {doc.status === "failed" && doc.error_message && (
-                  <p className="mt-1 text-xs text-red-600">{doc.error_message}</p>
-                )}
-              </div>
+    <div className="flex flex-col gap-6">
+      {byCategory.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          <FilterChip
+            label="All"
+            count={documents.length}
+            active={activeFilter === "all"}
+            onClick={() => setFilter("all")}
+          />
+          {byCategory.map((g) => (
+            <FilterChip
+              key={g.category}
+              label={DOCUMENT_CATEGORY_LABELS[g.category]}
+              count={g.docs.length}
+              active={activeFilter === g.category}
+              onClick={() => setFilter(g.category)}
+            />
+          ))}
+        </div>
+      )}
 
-              <div className="flex shrink-0 items-center gap-2">
-                <DocumentStatusBadge status={doc.status} />
-                {canManage && (
-                  <>
-                    <button
-                      onClick={() => handleReindex(doc.id)}
-                      disabled={isBusy}
-                      className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 disabled:opacity-50"
-                    >
-                      Reindex
-                    </button>
-                    <button
-                      onClick={() => handleDelete(doc.id)}
-                      disabled={isBusy}
-                      className="rounded-md border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 disabled:opacity-50"
-                    >
-                      Delete
-                    </button>
-                  </>
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-
-      {actionError && <p className="text-sm text-red-600">{actionError}</p>}
+      {visibleGroups.map((group) => (
+        <section key={group.category}>
+          <div className="mb-2 flex items-baseline gap-2">
+            <h3 className="text-sm font-medium text-ink">
+              {DOCUMENT_CATEGORY_LABELS[group.category]}
+            </h3>
+            <span className="text-xs text-ink/40">{group.docs.length}</span>
+          </div>
+          <ul className="divide-y divide-line rounded-lg border border-line bg-white">
+            {group.docs.map((doc) => (
+              <DocumentRow key={doc.id} document={doc} canManage={canManage} />
+            ))}
+          </ul>
+        </section>
+      ))}
     </div>
+  );
+}
+
+function FilterChip({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+        active ? "bg-ink text-white" : "bg-ink/[0.05] text-ink/65 hover:bg-ink/[0.09]"
+      }`}
+    >
+      {label} <span className={active ? "text-white/60" : "text-ink/35"}>{count}</span>
+    </button>
   );
 }
