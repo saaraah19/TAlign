@@ -150,7 +150,7 @@ class JobService:
         return await self._jobs.list_open(page=page, page_size=page_size)
 
     async def get_open_job(self, *, job_id: uuid.UUID) -> Job:
-        job = await self._jobs.get_by_id(job_id)
+        job = await self._jobs.get_open_with_company(job_id)
         if job is None or job.status != JobStatus.OPEN.value:
             raise NotFoundError("Job not found.")
         return job

@@ -13,6 +13,8 @@ class TalignError(Exception):
     """Base for every domain exception. Subclasses set `http_status`."""
 
     http_status: int = 400
+    #: Extra response headers (e.g. Retry-After on a 429); None for most errors.
+    headers: dict[str, str] | None = None
 
     def __init__(self, message: str) -> None:
         super().__init__(message)

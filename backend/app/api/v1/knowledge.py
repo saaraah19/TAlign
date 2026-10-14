@@ -12,13 +12,10 @@ RBAC split, per the approved Slice 6 architecture (HANDOVER.md §3):
   - Management (upload/delete/reindex): ADMIN only — curating official
     company policy content is a governance action, not day-to-day
     recruiter work.
-  - Read (list/get): ADMIN, RECRUITER, HIRING_MANAGER — the same three
-    roles the knowledge_query Compass capability is scoped to (see
-    app/compass/capabilities.py). Not explicitly specified in the
-    original proposal the way management access was; this is this
-    slice's own default, flagged here for easy revision if it's wrong
-    — same "Slice N default, not gospel" pattern jobs.py's RBAC split
-    uses for read vs. write access.
+  - Read (list/get): ADMIN, RECRUITER, HIRING_MANAGER, and (added with the
+    V2 Employee Portal) EMPLOYEE — the same roles the knowledge_query
+    Compass capability is scoped to (see app/compass/capabilities.py).
+    Candidates have no access. See `_READ_ROLES` below for the enforced list.
 """
 
 import uuid

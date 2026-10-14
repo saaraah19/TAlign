@@ -1,17 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonClasses } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api-client";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useDeleteJob, useJob, useTransitionJob } from "../hooks/use-jobs";
-import {
-  CURRENCY_SYMBOLS,
-  EMPLOYMENT_TYPE_LABELS,
-  JOB_STATUS_LABELS,
-  JOB_STATUS_TRANSITIONS,
-} from "../types";
+import { formatSalaryRange } from "../lib/format-salary";
+import { EMPLOYMENT_TYPE_LABELS, JOB_STATUS_LABELS, JOB_STATUS_TRANSITIONS } from "../types";
 import { JobStatusBadge } from "./job-status-badge";
+import { SkillChips } from "./skill-chips";
 
 export function JobDetail({ jobId, onDeleted }: { jobId: string; onDeleted?: () => void }) {
   const { data: job, isLoading, error } = useJob(jobId);
@@ -19,12 +20,13 @@ export function JobDetail({ jobId, onDeleted }: { jobId: string; onDeleted?: () 
   const deleteJob = useDeleteJob();
   const toast = useToast();
   const [actionError, setActionError] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   if (isLoading) {
     return (
       <div className="flex flex-col gap-4">
-        <Skeleton className="h-7 w-64" />
-        <Skeleton className="h-40 w-full" />
+        <Skeleton className="h-8 w-72" />
+        <Skeleton className="h-48 w-full" />
       </div>
     );
   }
@@ -35,6 +37,7 @@ export function JobDetail({ jobId, onDeleted }: { jobId: string; onDeleted?: () 
   // ARCHIVED). This doesn't replace backend validation; it just means a
   // user never sees a button that would fail.
   const nextStatus = JOB_STATUS_TRANSITIONS[job.status];
+  const salary = formatSalaryRange(job);
 
   async function handleTransition() {
     if (!nextStatus) return;
@@ -64,55 +67,99 @@ export function JobDetail({ jobId, onDeleted }: { jobId: string; onDeleted?: () 
       onDeleted?.();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Delete failed.");
+      setConfirmingDelete(false);
     }
   }
 
+  const busy = transitionJob.isPending || deleteJob.isPending;
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-xl font-semibold">{job.title}</h1>
-        <JobStatusBadge status={job.status} />
+    <div className="flex flex-col gap-6">
+      <div>
+        <Link href="/jobs" className="text-xs font-medium text-ink/45 hover:text-ink">
+          ← All jobs
+        </Link>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">{job.title}</h1>
+          <JobStatusBadge status={job.status} />
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Badge>{EMPLOYMENT_TYPE_LABELS[job.employment_type]}</Badge>
+          {job.location && <Badge>{job.location}</Badge>}
+          {salary && <Badge>{salary}</Badge>}
+        </div>
       </div>
 
-      <p className="text-sm text-gray-500">
-        {EMPLOYMENT_TYPE_LABELS[job.employment_type]}
-        {job.location ? ` · ${job.location}` : ""}
-        {job.salary_min || job.salary_max
-          ? ` · ${CURRENCY_SYMBOLS[job.salary_currency]}${job.salary_min ?? "?"} – ${CURRENCY_SYMBOLS[job.salary_currency]}${job.salary_max ?? "?"}`
-          : ""}
-      </p>
+      <Card className="p-6">
+        <h2 className="text-sm font-medium text-ink">Description</h2>
+        <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-ink/70">
+          {job.description}
+        </p>
+      </Card>
 
-      <p className="whitespace-pre-wrap text-sm text-gray-700">{job.description}</p>
+      <Card className="flex flex-col gap-5 p-6">
+        <div>
+          <h2 className="text-sm font-medium text-ink">Scoring criteria</h2>
+          <p className="mt-1 text-xs text-ink/50">What Resume Intelligence scores candidates against.</p>
+        </div>
+        {job.required_skills.length > 0 ? (
+          <div>
+            <p className="text-xs text-ink/40">Required skills</p>
+            <SkillChips skills={job.required_skills} className="mt-2" />
+          </div>
+        ) : (
+          <p className="text-sm text-ink/50">No required skills were set for this job.</p>
+        )}
+        {job.preferred_skills.length > 0 && (
+          <div>
+            <p className="text-xs text-ink/40">Preferred skills</p>
+            <SkillChips skills={job.preferred_skills} className="mt-2" />
+          </div>
+        )}
+        {job.min_years_experience !== null && (
+          <div>
+            <p className="text-xs text-ink/40">Minimum experience</p>
+            <p className="mt-1 text-sm font-medium text-ink">
+              {job.min_years_experience} {job.min_years_experience === 1 ? "year" : "years"}
+            </p>
+          </div>
+        )}
+      </Card>
 
       {actionError && <p className="text-sm text-red-600">{actionError}</p>}
 
-      <div className="flex flex-wrap gap-3 pt-2">
+      <div className="flex flex-wrap items-center gap-3">
         {nextStatus && (
-          <button
-            onClick={handleTransition}
-            disabled={transitionJob.isPending}
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
+          <Button onClick={handleTransition} disabled={busy}>
             {transitionJob.isPending ? "Updating…" : `Move to ${JOB_STATUS_LABELS[nextStatus]}`}
-          </button>
+          </Button>
         )}
 
-        {job.status === "draft" && (
-          <button
-            onClick={handleDelete}
-            disabled={deleteJob.isPending}
-            className="rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-600 disabled:opacity-50"
-          >
-            {deleteJob.isPending ? "Deleting…" : "Delete draft"}
-          </button>
-        )}
-
-        <a
-          href={`/pipeline?job_id=${job.id}`}
-          className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
-        >
+        <Link href={`/pipeline?job_id=${job.id}`} className={buttonClasses("secondary", "md")}>
           View applicants
-        </a>
+        </Link>
+
+        {job.status === "draft" &&
+          (confirmingDelete ? (
+            <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50/50 px-3 py-1.5">
+              <span className="text-xs text-red-700">Delete this draft? This can&apos;t be undone.</span>
+              <Button variant="danger" size="sm" onClick={handleDelete} disabled={busy}>
+                {deleteJob.isPending ? "Deleting…" : "Confirm delete"}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirmingDelete(false)}
+                disabled={busy}
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <Button variant="danger" onClick={() => setConfirmingDelete(true)} disabled={busy}>
+              Delete draft
+            </Button>
+          ))}
       </div>
     </div>
   );

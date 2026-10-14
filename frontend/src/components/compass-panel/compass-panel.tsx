@@ -132,6 +132,9 @@ function PanelBody({ scopes, onClose }: { scopes: CompassScope[]; onClose: () =>
             showHeader={false}
             autoFocus
             bare
+            placeholder={
+              scope.audience === "candidate" ? "Ask about your application…" : undefined
+            }
           />
         ) : (
           <CompanyScopeBody onClose={onClose} />

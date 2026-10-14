@@ -7,10 +7,13 @@ app/api/v1/applications.py's transition endpoint via
 app/workflow_engine/tasks.py's run_hire_workflow_task — see that
 module for the trigger mechanism and WorkflowRun persistence).
 
-Three deterministic steps, in order:
+Four deterministic steps, in order:
   1. create_employee_record    -> EmployeeService.create_employee
   2. create_onboarding_checklist -> EmployeeService.create_onboarding_checklist
   3. draft_welcome_email       -> CommunicationService.generate_system_draft
+  4. grant_portal_access       -> AuthService.convert_candidate_to_employee
+     (converts the candidate's EXISTING account in place — same email and
+     password — into an employee account; there is no second identity)
 
 No LLM reasoning happens in this file. Step 3 delegates entirely to
 CommunicationService (which delegates to CommunicationAgent) — this

@@ -179,7 +179,15 @@ class LeaveRequestService:
 
         leave_request.status = LeaveRequestStatus.CANCELLED.value
         await self._db.commit()
-        return leave_request
+        # Reload rather than return the instance we just changed: the UPDATE
+        # makes SQLAlchemy discard the database-generated `updated_at`, and
+        # reading it while building the response would raise MissingGreenlet
+        # in async code. (Same re-fetch-after-commit pattern as the job and
+        # application services.)
+        reloaded = await self._leave_requests.get_by_id_for_employee(leave_request_id, employee.id)
+        if reloaded is None:  # cannot happen right after our own commit
+            raise RuntimeError("The leave request just updated could not be reloaded.")
+        return reloaded
 
     # --- Admin/hiring-manager-facing (approval queue) ---
 
@@ -233,7 +241,17 @@ class LeaveRequestService:
         leave_request.reviewed_by = acting_user.id
         leave_request.reviewed_at = datetime.now(UTC)
         await self._db.commit()
-        return leave_request
+        # Reload (with the employee, which the approval queue's response
+        # shows) instead of returning the instance we just changed: its
+        # database-generated `updated_at` was discarded by the UPDATE and
+        # reading it would raise MissingGreenlet. This is the bug that made
+        # every approve/reject return a 500 against a real database.
+        reloaded = await self._leave_requests.get_by_id_for_company(
+            leave_request_id, acting_user.company_id
+        )
+        if reloaded is None:  # cannot happen right after our own commit
+            raise RuntimeError("The leave request just reviewed could not be reloaded.")
+        return reloaded
 
     # --- Shared internals ---
 

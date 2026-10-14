@@ -184,3 +184,46 @@ this mismatch all along (arg-type on `items=`) — it is worth reading its outpu
 `app/api/` after schema changes even though the rest of its output is baseline noise.
 **Needs a full rebuild** (backend change): `docker compose down` then
 `docker compose up --build`.
+
+## Polish round after Phase 6 (candidate journey, leave, recruiter leftovers, error handling)
+**Backend: 500 errors no longer masquerade as CORS errors.** `@app.exception_handler(Exception)`
+never worked for this: Starlette runs it in ServerErrorMiddleware, which sits OUTSIDE
+CORSMiddleware, so the 500 had no CORS headers (and with `debug=True` it was bypassed by the
+debug page entirely). Replaced by `app/core/error_middleware.py::UnhandledExceptionMiddleware`,
+a plain-ASGI middleware registered BEFORE CORSMiddleware in `create_app()` (the last-added
+middleware is the outermost), so its JSON 500 passes back through CORS. `TalignError` and
+`HTTPException` are handled further in and keep their status codes. Tests:
+`tests/test_unhandled_error_cors.py` (verified to fail on the old main.py). 291 backend tests.
+**Public shell.** `(public)/layout.tsx` + `components/public-header.tsx`: the careers/apply pages
+had no header at all (no logo, no sign-in, a logged-in candidate lost all navigation). The
+header adapts to visitor / candidate / staff.
+**Candidate journey restyled** on the design tokens: careers list (cards with salary + skill
+chips, relative date, and a pager — it silently showed only the first 20 jobs before), public
+job detail (two columns with a sticky apply card; absent optional facts are omitted rather than
+shown blank), apply page + `ApplyForm` (selectable resume rows, shared dropzone, a transparency
+note that an AI helps review and a person decides), "My applications", and the application page
+(now shows the candidate's stage via `StageJourney audience="candidate"`, with candidate-appropriate
+wording for a rejection). New shared pieces: `ResumeOption`, `ResumeUploadField`,
+`SkillChips`, `formatSalaryRange`, `Badge` tone `accent`. Compass's input now says "Ask about
+your application…" for candidates (it said "this candidate" before), in the page and the panel.
+**Employee leave** restyled: balance card with a real used/allotment bar and an over-allotment
+warning; the request form previews the days a request uses and what remains if approved (same
+inclusive calendar-day formula as the backend) and uses a toast instead of an inline message;
+cancelling a request takes an inline two-step confirmation (`MyLeaveRequestRow`).
+**Recruiter leftovers**: job creation form (sections, `Input` primitive, live skill-chip
+preview of the comma-separated skills), job detail (now shows the scoring criteria the AI uses;
+Delete draft takes an inline confirmation), status badges on `Badge` tones.
+**Removed**: `features/applications/components/pipeline-view.tsx` (dead code; delete the file
+by hand if your checkout still has it — a zip cannot delete files). Zero old `gray-*` classes
+remain in the frontend.
+**Verification**: `tsc` clean, 291 backend tests, ~78 throwaway jsdom checks (every flow above
+incl. real file upload through the apply form, pager requests, confirm flows with "nothing sent
+until confirmed", payload shapes) plus three deliberate mutations proving the checks fail when
+the behaviour breaks. NOT verified: real-browser layout/responsiveness and visual polish.
+
+## Still open (planned LAST, deliberately deferred by Sarah)
+Demo seed data (example companies + candidates + resumes + knowledge documents to exercise the
+whole workflow, ideally driven through the HTTP API rather than direct DB writes), a docs set
+for the real built app (the `docs/` folder only covers slices 0-4), and a much more explanatory
+README. Repo exploration for this is already done (51 API operations, existing README and
+DEMO_WALKTHROUGH.md); nothing has been written yet.

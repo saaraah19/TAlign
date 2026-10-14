@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import get_db
-from app.schemas.job import JobRead, PublicJobListResponse
+from app.schemas.job import PublicJobListResponse, PublicJobRead
 from app.services.job_service import JobService
 
 router = APIRouter()
@@ -32,14 +32,16 @@ async def list_open_jobs(
 ) -> PublicJobListResponse:
     jobs, total = await JobService(db).list_open_jobs(page=page, page_size=page_size)
     return PublicJobListResponse(
-        items=[JobRead.model_validate(job) for job in jobs],
+        items=[PublicJobRead.model_validate(job) for job in jobs],
         total=total,
         page=page,
         page_size=page_size,
     )
 
 
-@router.get("/{job_id}", response_model=JobRead)
-async def get_open_job(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)) -> JobRead:
+@router.get("/{job_id}", response_model=PublicJobRead)
+async def get_open_job(
+    job_id: uuid.UUID, db: AsyncSession = Depends(get_db)
+) -> PublicJobRead:
     job = await JobService(db).get_open_job(job_id=job_id)
-    return JobRead.model_validate(job)
+    return PublicJobRead.model_validate(job)

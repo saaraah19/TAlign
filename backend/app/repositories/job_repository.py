@@ -12,6 +12,7 @@ import uuid
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.application import Application
 from app.models.job import Job, JobStatus
@@ -43,9 +44,28 @@ class JobRepository:
         """
         return await self._db.get(Job, job_id)
 
+    async def get_open_with_company(self, job_id: uuid.UUID) -> Job | None:
+        """
+        One job with its company loaded, for the public job page. Returns
+        the job whatever its status — the caller decides whether a non-open
+        job is visible (JobService.get_open_job hides it).
+        """
+        result = await self._db.execute(
+            select(Job).options(selectinload(Job.company)).where(Job.id == job_id)
+        )
+        return result.scalar_one_or_none()
+
     async def list_open(self, *, page: int = 1, page_size: int = 20) -> tuple[list[Job], int]:
-        """Public job browsing — every company's OPEN jobs, no auth, no company scoping."""
-        base_query = select(Job).where(Job.status == JobStatus.OPEN.value)
+        """
+        Public job browsing — every company's OPEN jobs, no auth, no company scoping.
+
+        `Job.company` is loaded eagerly: the public response shows the
+        employer's name, and reading an unloaded relationship in async
+        SQLAlchemy raises MissingGreenlet.
+        """
+        base_query = (
+            select(Job).options(selectinload(Job.company)).where(Job.status == JobStatus.OPEN.value)
+        )
         count_query = (
             select(func.count()).select_from(Job).where(Job.status == JobStatus.OPEN.value)
         )

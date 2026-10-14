@@ -3,7 +3,15 @@
 import { useState } from "react";
 import { ApiError } from "@/lib/api-client";
 import { useMyResumes, useUploadResume } from "../hooks/use-resumes";
+import { ResumeOption } from "./resume-option";
+import { ResumeUploadField } from "./resume-upload-field";
 
+/**
+ * Pick-and-attach: choosing an existing resume, or uploading a new
+ * one, attaches it right away (the application already exists on this
+ * screen). The apply form, where no application exists yet, builds on
+ * the same two pieces but holds the choice locally until submit.
+ */
 export function ResumePicker({
   onAttach,
   isAttaching,
@@ -15,9 +23,7 @@ export function ResumePicker({
   const uploadResume = useUploadResume();
   const [error, setError] = useState<string | null>(null);
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function handleFile(file: File) {
     setError(null);
     try {
       const resume = await uploadResume.mutateAsync(file);
@@ -25,48 +31,36 @@ export function ResumePicker({
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Upload failed.");
     }
-    e.target.value = "";
   }
 
+  const hasResumes = !isLoading && resumes && resumes.length > 0;
+
   return (
-    <div className="flex flex-col gap-3">
-      {!isLoading && resumes && resumes.length > 0 && (
+    <div className="flex flex-col gap-5">
+      {hasResumes && (
         <div>
-          <p className="text-sm font-medium">Use an existing resume</p>
+          <p className="text-sm font-medium text-ink">Use a resume you&apos;ve already uploaded</p>
           <ul className="mt-2 flex flex-col gap-2">
             {resumes.map((resume) => (
               <li key={resume.id}>
-                <button
-                  onClick={() => onAttach(resume.id)}
-                  disabled={isAttaching || resume.status === "parse_failed"}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-left text-sm disabled:opacity-50"
-                >
-                  {resume.original_filename}
-                  {resume.status === "parse_failed" && (
-                    <span className="ml-2 text-xs text-red-600">Could not be read</span>
-                  )}
-                </button>
+                <ResumeOption
+                  resume={resume}
+                  disabled={isAttaching}
+                  onSelect={() => onAttach(resume.id)}
+                />
               </li>
             ))}
           </ul>
         </div>
       )}
 
-      <div>
-        <p className="text-sm font-medium">
-          {resumes && resumes.length > 0 ? "Or upload a new one" : "Upload your resume"}
-        </p>
-        <input
-          type="file"
-          accept=".pdf,.docx,.txt"
-          onChange={handleFileChange}
-          disabled={uploadResume.isPending || isAttaching}
-          className="mt-2 text-sm"
-        />
-        <p className="mt-1 text-xs text-gray-400">PDF, DOCX, or TXT.</p>
-      </div>
-
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      <ResumeUploadField
+        label={hasResumes ? "Or upload a new one" : "Upload your resume"}
+        isUploading={uploadResume.isPending}
+        disabled={uploadResume.isPending || isAttaching}
+        error={error}
+        onFile={handleFile}
+      />
     </div>
   );
 }

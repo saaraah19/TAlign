@@ -1,13 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/features/auth";
 
 /**
- * No longer applies inline — the actual apply + resume submission both
- * happen together on /careers/{jobId}/apply (see ApplyForm). This
- * button's only job now is getting the right person to that page, or
- * explaining why they can't get there yet.
+ * Only gets the right person to /careers/{jobId}/apply — the apply and
+ * resume steps both happen there together (see ApplyForm) — or explains
+ * why they can't yet.
  */
 export function ApplyButton({ jobId }: { jobId: string }) {
   const { user, isLoading } = useAuth();
@@ -17,29 +17,29 @@ export function ApplyButton({ jobId }: { jobId: string }) {
 
   if (!user) {
     return (
-      <button
-        onClick={() => router.push(`/register/candidate?next=/careers/${jobId}/apply`)}
-        className="rounded-md bg-gray-900 px-5 py-2.5 text-sm font-medium text-white"
-      >
-        Sign in to apply
-      </button>
+      <div className="flex flex-col gap-2">
+        <Button
+          className="w-full"
+          onClick={() => router.push(`/register/candidate?next=/careers/${jobId}/apply`)}
+        >
+          Create an account to apply
+        </Button>
+        <p className="text-center text-xs text-ink/45">It takes less than a minute.</p>
+      </div>
     );
   }
 
   if (user.account_type !== "candidate") {
     return (
-      <p className="text-sm text-gray-500">
-        Only candidate accounts can apply. You&apos;re signed in as an internal user.
+      <p className="text-sm leading-relaxed text-ink/55">
+        Only candidate accounts can apply. You&apos;re signed in with a company account.
       </p>
     );
   }
 
   return (
-    <button
-      onClick={() => router.push(`/careers/${jobId}/apply`)}
-      className="rounded-md bg-gray-900 px-5 py-2.5 text-sm font-medium text-white"
-    >
+    <Button className="w-full" onClick={() => router.push(`/careers/${jobId}/apply`)}>
       Apply now
-    </button>
+    </Button>
   );
 }

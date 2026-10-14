@@ -26,6 +26,7 @@ export function CompassAsk({
   showHeader = true,
   autoFocus = false,
   bare = false,
+  placeholder,
 }: {
   applicationId?: string;
   suggestions?: string[];
@@ -35,6 +36,8 @@ export function CompassAsk({
   autoFocus?: boolean;
   /** Drop the card border/padding when a parent already provides the surface. */
   bare?: boolean;
+  /** Overrides the default hint, e.g. when the asker is the candidate themselves. */
+  placeholder?: string;
 }) {
   const [question, setQuestion] = useState("");
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
@@ -138,7 +141,10 @@ export function CompassAsk({
         <input
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          placeholder={applicationId ? "Ask about this candidate…" : "Ask about company policies…"}
+          placeholder={
+            placeholder ??
+            (applicationId ? "Ask about this candidate…" : "Ask about company policies…")
+          }
           disabled={isAsking}
           autoFocus={autoFocus}
           className="min-w-0 flex-1 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-ink/35 focus:border-ink/40 disabled:bg-paper"

@@ -16,12 +16,25 @@ function CheckIcon() {
  * the backend stores the current status, not a history of transitions.
  * Dates for real events live in the activity feed instead.
  */
-export function StageJourney({ status }: { status: ApplicationStatus }) {
+export function StageJourney({
+  status,
+  audience = "staff",
+}: {
+  status: ApplicationStatus;
+  /** Who is reading: the wording of the rejected state differs. */
+  audience?: "staff" | "candidate";
+}) {
   if (status === "rejected") {
     return (
       <div className="rounded-md bg-red-50 px-3 py-2.5">
-        <p className="text-sm font-medium text-red-700">Application rejected</p>
-        <p className="mt-0.5 text-xs text-red-600/80">This candidate is no longer in the pipeline.</p>
+        <p className="text-sm font-medium text-red-700">
+          {audience === "candidate" ? "Not moving forward" : "Application rejected"}
+        </p>
+        <p className="mt-0.5 text-xs text-red-600/80">
+          {audience === "candidate"
+            ? "The company has decided not to continue with this application."
+            : "This candidate is no longer in the pipeline."}
+        </p>
       </div>
     );
   }

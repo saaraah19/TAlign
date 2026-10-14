@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import AliasPath, BaseModel, ConfigDict, Field, model_validator
 
 from app.models.job import Currency, EmploymentType, JobStatus
 
@@ -106,17 +106,56 @@ class JobListResponse(BaseModel):
     page_size: int
 
 
+class PublicJobRead(BaseModel):
+    """
+    A job as an anonymous visitor sees it on the public job board.
+
+    Deliberately NOT `JobRead`. `JobRead` is the staff view and carries
+    `company_id`, `created_by` (the internal user id of the recruiter who
+    wrote the job) and `status` — none of which a stranger browsing
+    careers needs, and the user id in particular is internal data that
+    should not be handed to the open internet. What the public DOES need
+    and `JobRead` lacks is the employer's name: before this schema a
+    candidate could browse and apply to a role without ever being shown
+    which company posted it.
+
+    Same convention as the candidate-facing analysis schemas: a field
+    that is not declared here cannot leak, whatever a future caller
+    forgets to strip.
+
+    `company_name` is read straight off the ORM object (`job.company.name`)
+    via the AliasPath, so the repository MUST load `Job.company` eagerly
+    (see JobRepository.list_open / get_open_with_company) — touching an
+    unloaded relationship in async SQLAlchemy raises MissingGreenlet.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    company_name: str = Field(validation_alias=AliasPath("company", "name"))
+    title: str
+    description: str
+    employment_type: EmploymentType
+    location: str | None
+    salary_min: int | None
+    salary_max: int | None
+    salary_currency: Currency
+    required_skills: list[str]
+    preferred_skills: list[str]
+    min_years_experience: int | None
+    created_at: datetime
+
+
 class PublicJobListResponse(BaseModel):
     """
     The candidate-facing job list. Deliberately NOT `JobListResponse`:
     that one carries `JobWithStatsRead` items (applicant counts, per-stage
-    counts) which are recruiter-only data. Keeping the public response a
-    separate type means those fields are structurally absent — they can't
-    leak by someone forgetting to strip them, and the public endpoint can't
-    be broken again by a change to the recruiter's list.
+    counts), which are recruiter-only data. A separate type means those
+    fields are structurally absent, and the public endpoint can't be broken
+    again by a change to the recruiter's list.
     """
 
-    items: list[JobRead]
+    items: list[PublicJobRead]
     total: int
     page: int
     page_size: int

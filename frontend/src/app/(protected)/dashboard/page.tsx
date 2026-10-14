@@ -58,16 +58,16 @@ export default function DashboardPage() {
         {user.account_type === "candidate" && (
           <>
             <Card className="p-5">
-              <a href="/careers" className="flex flex-col gap-1">
+              <Link href="/careers" className="flex flex-col gap-1">
                 <span className="text-sm font-medium text-ink">Browse open jobs →</span>
                 <span className="text-xs text-ink/45">See every role currently hiring.</span>
-              </a>
+              </Link>
             </Card>
             <Card className="p-5">
-              <a href="/applications" className="flex flex-col gap-1">
+              <Link href="/applications" className="flex flex-col gap-1">
                 <span className="text-sm font-medium text-ink">My applications →</span>
                 <span className="text-xs text-ink/45">Track status and attach your resume.</span>
-              </a>
+              </Link>
             </Card>
           </>
         )}

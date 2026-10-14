@@ -40,7 +40,6 @@ const EMPLOYEE_LINKS: NavLink[] = [
 // an individual manager). A plain recruiter role has no access to
 // these endpoints, so no point showing the link.
 const LEAVE_APPROVAL_LINK: NavLink = { href: "/leave-requests", label: "Leave requests" };
-const RECRUITING_ROLES = ["admin", "recruiter", "hiring_manager"];
 const LEAVE_APPROVAL_ROLES = ["admin", "hiring_manager"];
 
 const CANDIDATE_LINKS: NavLink[] = [
@@ -66,7 +65,6 @@ export function NavBar() {
 
   if (!user) return null;
 
-  const isRecruitingRole = user.roles.some((role) => RECRUITING_ROLES.includes(role));
   const plainEmployee = isPlainEmployee(user.roles);
 
   const links =

@@ -139,7 +139,16 @@ class AuthService:
             company_id=acting_company_id,
         )
         await self._db.commit()
-        return user
+        # Committing expires the instance, and async SQLAlchemy cannot
+        # lazy-load on attribute access (MissingGreenlet) — so handing the
+        # bare `user` back made the route crash the moment it read
+        # `user.roles` to build the response. Reload it through the
+        # repository, which eager-loads the roles. (Same re-fetch-after-
+        # commit pattern the job and application routes use.)
+        created = await self._users.get_by_id(user.id)
+        if created is None:  # cannot happen right after our own commit
+            raise RuntimeError("The user just created could not be reloaded.")
+        return created
 
     async def convert_candidate_to_employee(
         self, *, user_id: uuid.UUID, company_id: uuid.UUID

@@ -9,19 +9,23 @@ Refresh token cookie settings:
   httponly=True   — never readable by frontend JS (XSS mitigation)
   secure=True      — HTTPS only; disabled automatically in local dev via
                       settings.environment so http://localhost still works
-  samesite="lax"   — sent on top-level navigation, blocks most CSRF
-                      vectors for a cookie that only matters on same-site
-                      API calls
+  samesite          — settings.cookie_samesite, "lax" by default: sent on
+                      top-level navigation, blocks most CSRF vectors for a
+                      cookie that only matters on same-site API calls. Set
+                      to "none" (HTTPS only) when the frontend and the API
+                      live on different sites, or the browser drops the
+                      cookie and nobody stays signed in.
 """
 
 import uuid
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_roles
 from app.core.config import settings
-from app.core.exceptions import DomainValidationError
+from app.core.exceptions import DomainValidationError, InvalidCredentialsError
+from app.core.login_rate_limiter import login_limiter
 from app.core.roles import Role
 from app.database.session import get_db
 from app.models.user import User
@@ -54,7 +58,7 @@ def _set_refresh_cookie(response: Response, token_pair: TokenPair) -> None:
         value=token_pair.refresh_token,
         httponly=True,
         secure=settings.environment != "local",
-        samesite="lax",
+        samesite=settings.cookie_samesite,
         max_age=settings.refresh_token_expire_days * 24 * 60 * 60,
         path="/api/v1/auth",
     )
@@ -63,7 +67,7 @@ def _set_refresh_cookie(response: Response, token_pair: TokenPair) -> None:
         value="1",
         httponly=False,
         secure=settings.environment != "local",
-        samesite="lax",
+        samesite=settings.cookie_samesite,
         max_age=settings.refresh_token_expire_days * 24 * 60 * 60,
         path="/",
     )
@@ -97,9 +101,21 @@ async def register_candidate(
 
 @router.post("/login", response_model=TokenResponse)
 async def login(
-    payload: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)
+    payload: LoginRequest,
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
-    user, tokens = await AuthService(db).authenticate(payload.email, payload.password)
+    # Throttling is an HTTP-level concern (it needs the client's address),
+    # so it lives here; the policy itself is in login_limiter.
+    attempt_key = login_limiter.key(request.client.host if request.client else None, payload.email)
+    login_limiter.check(attempt_key)
+    try:
+        user, tokens = await AuthService(db).authenticate(payload.email, payload.password)
+    except InvalidCredentialsError:
+        login_limiter.record_failure(attempt_key)
+        raise
+    login_limiter.reset(attempt_key)
     _set_refresh_cookie(response, tokens)
     return TokenResponse(
         access_token=tokens.access_token,

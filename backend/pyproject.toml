@@ -35,6 +35,13 @@ dev = [
     "mypy>=1.11.0",
 ]
 
+# Without this, `pip install -e ".[dev]"` fails whenever the full source is
+# present ("Multiple top-level packages discovered in a flat-layout: app,
+# alembic"). The Dockerfile only worked because it installs while just
+# pyproject.toml has been copied in, so there was nothing to discover yet.
+[tool.setuptools.packages.find]
+include = ["app*"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

@@ -79,6 +79,36 @@ export interface JobListResponse {
   page_size: number;
 }
 
+/**
+ * A job as an anonymous visitor sees it (backend PublicJobRead). Not `Job`:
+ * the public endpoint deliberately omits company_id, created_by (the
+ * recruiter's internal user id), status and updated_at, and adds the
+ * employer's name, which a candidate needs to know who they'd work for.
+ */
+export interface PublicJob {
+  id: string;
+  company_name: string;
+  title: string;
+  description: string;
+  employment_type: EmploymentType;
+  location: string | null;
+  salary_min: number | null;
+  salary_max: number | null;
+  salary_currency: Currency;
+  required_skills: string[];
+  preferred_skills: string[];
+  min_years_experience: number | null;
+  created_at: string;
+}
+
+/** The candidate-facing list (/public/jobs): plain public jobs, no pipeline stats. */
+export interface PublicJobListResponse {
+  items: PublicJob[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
 // Mirrors backend app/schemas/job.py validation, including the
 // cross-field salary_min <= salary_max rule.
 export const jobCreateSchema = z

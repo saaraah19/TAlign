@@ -7,7 +7,7 @@
  * meaning, never the call site's own colors, so "success" always looks
  * the same everywhere.
  */
-type Tone = "neutral" | "success" | "warning" | "danger" | "info";
+type Tone = "neutral" | "success" | "warning" | "danger" | "info" | "accent";
 
 const TONE_CLASSES: Record<Tone, string> = {
   neutral: "bg-ink/[0.06] text-ink/70",
@@ -15,6 +15,7 @@ const TONE_CLASSES: Record<Tone, string> = {
   warning: "bg-amber-50 text-amber-700",
   danger: "bg-red-50 text-red-600",
   info: "bg-blue-50 text-blue-700",
+  accent: "bg-accent/10 text-accent-dim",
 };
 
 export function Badge({

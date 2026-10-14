@@ -1,0 +1,20 @@
+NORTHWIND IT SECURITY POLICY
+
+
+PASSWORDS AND MULTI-FACTOR AUTHENTICATION
+-----------------------------------------
+Passwords must be at least 14 characters and must never be reused across systems. Use the company password manager.
+Multi-factor authentication is mandatory for email, the code repository and the cloud console.
+
+DEVICES
+-------
+Company laptops must have disk encryption and automatic updates enabled. Lock your screen whenever you step away.
+Personal devices may only access company email, and only through the managed mail application.
+
+REPORTING AN INCIDENT
+---------------------
+If you lose a device, click a suspicious link or suspect an account has been compromised, report it immediately to security@northwind-robotics.com or the IT Service Desk, at any time of day. Reporting quickly is never penalised.
+
+CUSTOMER AND EMPLOYEE DATA
+--------------------------
+Confidential data must only be stored on approved company systems. Never send it to personal email or consumer file-sharing tools.

@@ -1,5 +1,12 @@
 import { apiFetch } from "@/lib/api-client";
-import type { Job, JobCreateInput, JobListResponse, JobStatus } from "./types";
+import type {
+  Job,
+  JobCreateInput,
+  JobListResponse,
+  JobStatus,
+  PublicJob,
+  PublicJobListResponse,
+} from "./types";
 
 function splitSkills(text?: string): string[] {
   if (!text) return [];
@@ -61,8 +68,8 @@ export const publicJobsApi = {
     if (params?.page) query.set("page", String(params.page));
     if (params?.page_size) query.set("page_size", String(params.page_size));
     const qs = query.toString();
-    return apiFetch<JobListResponse>(`/public/jobs${qs ? `?${qs}` : ""}`);
+    return apiFetch<PublicJobListResponse>(`/public/jobs${qs ? `?${qs}` : ""}`);
   },
 
-  get: (jobId: string) => apiFetch<Job>(`/public/jobs/${jobId}`),
+  get: (jobId: string) => apiFetch<PublicJob>(`/public/jobs/${jobId}`),
 };

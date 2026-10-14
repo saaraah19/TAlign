@@ -2,5 +2,7 @@ export { JobList } from "./components/job-list";
 export { JobDetail } from "./components/job-detail";
 export { JobCreateForm } from "./components/job-create-form";
 export { JobStatusBadge } from "./components/job-status-badge";
+export { SkillChips } from "./components/skill-chips";
+export { formatSalaryRange } from "./lib/format-salary";
 export * from "./hooks/use-jobs";
 export * from "./types";
