@@ -1,0 +1,97 @@
+# Talign on Render, free tier. Blueprint: render.com/docs/blueprint-spec
+#
+# Two services:
+#   talign       a STATIC SITE: the web app. A CDN serves it, it never sleeps, and it forwards
+#                /api/* to the API, so the browser only ever talks to one address (no CORS, and
+#                the sign-in cookie belongs to the site itself).
+#   talign-api   a WEB SERVICE: the FastAPI backend, from backend/Dockerfile.prod. On the free
+#                plan it sleeps after 15 idle minutes and takes up to a minute to wake; the web
+#                app shows a "waking up" screen meanwhile.
+#
+# The database is NOT defined here: it already exists. Paste its INTERNAL connection string when
+# Render asks for DATABASE_URL (the one that starts with postgres:// and has a host like
+# dpg-xxxx-a, with no region suffix). The API and the database must be in the SAME region.
+#
+# AFTER THE FIRST DEPLOY: Render may give the API a different address than the one below (for
+# example talign-api-x1y2.onrender.com if the name was taken). Put the real address in the
+# /api/* rule, and the web app's real address in CORS_ORIGINS, then push. See docs/09_deployment.md.
+#
+# The page rules below must stay identical, and in this order, to frontend/static-host-rules.json
+# (a backend test checks it).
+
+services:
+  - type: web
+    name: talign-api
+    runtime: docker
+    plan: free
+    region: oregon # must match your database's region
+    dockerfilePath: ./backend/Dockerfile.prod
+    dockerContext: ./backend
+    healthCheckPath: /api/v1/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: LOG_JSON
+        value: "true"
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: GOOGLE_API_KEY
+        sync: false # prompted once; use a key from a free-tier Google project with NO billing attached
+      - key: DATABASE_URL
+        sync: false # prompted once; the database's INTERNAL connection string
+      - key: CORS_ORIGINS
+        value: https://talign.onrender.com # the web app's real address (only direct API calls need it)
+      - key: COOKIE_SAMESITE
+        value: lax
+      - key: FORWARDED_ALLOW_IPS
+        value: "*"
+
+  - type: web
+    name: talign
+    runtime: static
+    buildCommand: cd frontend && npm ci && npm run build
+    staticPublishPath: ./frontend/out
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_API_URL
+        value: /api/v1 # relative: the browser calls its own address, and the rule below forwards it
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /_next/static/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://talign-api.onrender.com/api/*
+      - type: rewrite
+        source: /careers/:id/apply
+        destination: /careers/_/apply/index.html
+      - type: rewrite
+        source: /careers/:id/apply/
+        destination: /careers/_/apply/index.html
+      - type: rewrite
+        source: /careers/*
+        destination: /careers/_/index.html
+      - type: rewrite
+        source: /jobs/*
+        destination: /jobs/_/index.html
+      - type: rewrite
+        source: /pipeline/*
+        destination: /pipeline/_/index.html
+      - type: rewrite
+        source: /applications/*
+        destination: /applications/_/index.html

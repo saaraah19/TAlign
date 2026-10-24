@@ -1,0 +1,16 @@
+{
+  "name": "talign-screenshots",
+  "private": true,
+  "type": "module",
+  "description": "Captures the README screenshots from a running Talign stack. See README.md.",
+  "scripts": {
+    "capture": "node scenarios.mjs public apply candidate recruiter knowledge hire leave isolation failures"
+  },
+  "dependencies": {
+    "@fontsource/inter": "^5.0.0",
+    "puppeteer-core": "^24.0.0"
+  },
+  "optionalDependencies": {
+    "@sparticuz/chromium": "^138.0.0"
+  }
+}

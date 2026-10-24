@@ -1,0 +1,11 @@
+{
+  "_comment": "Rewrite rules for the static site, in Render's semantics (docs: render.com/docs/redirects-rewrites): a file that exists is served first; otherwise the FIRST matching rule applies. Dynamic pages are built once for the placeholder id '_' (see src/lib/route-id.ts) and the host serves that file for every real id. render.yaml must carry the same rules, in the same order (a backend test checks it). The /api rule is added separately because its destination is the backend's address.",
+  "rewrites": [
+    { "source": "/careers/:id/apply", "destination": "/careers/_/apply/index.html" },
+    { "source": "/careers/:id/apply/", "destination": "/careers/_/apply/index.html" },
+    { "source": "/careers/*", "destination": "/careers/_/index.html" },
+    { "source": "/jobs/*", "destination": "/jobs/_/index.html" },
+    { "source": "/pipeline/*", "destination": "/pipeline/_/index.html" },
+    { "source": "/applications/*", "destination": "/applications/_/index.html" }
+  ]
+}

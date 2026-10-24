@@ -1,0 +1,49 @@
+"""
+Employee repository.
+
+`get_by_application_id` is the idempotency check — EmployeeService
+consults this before creating an Employee, so triggering the hire
+workflow twice for the same Application returns the existing row
+instead of raising a UNIQUE-constraint IntegrityError. Same
+"check first, DB constraint is the second layer" discipline as
+EmailRepository.get_current_draft.
+"""
+
+import uuid
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.employee import Employee
+
+
+class EmployeeRepository:
+    def __init__(self, db: AsyncSession) -> None:
+        self._db = db
+
+    async def create(self, employee: Employee) -> Employee:
+        self._db.add(employee)
+        await self._db.flush()
+        return employee
+
+    async def get_by_id(self, employee_id: uuid.UUID) -> Employee | None:
+        return await self._db.get(Employee, employee_id)
+
+    async def get_by_application_id(self, application_id: uuid.UUID) -> Employee | None:
+        result = await self._db.execute(
+            select(Employee).where(Employee.application_id == application_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_by_user_id(self, user_id: uuid.UUID) -> Employee | None:
+        """
+        Resolves the Employee row for a logged-in Role.EMPLOYEE user —
+        added for Sub-slice 9c (Leave Management). Added here rather
+        than assuming a shape from an unseen 9a-2 implementation: this
+        is the natural extension of the existing get_by_application_id
+        idempotency-lookup pattern, applied to the other nullable unique
+        pointer on Employee (see app/models/employee.py's docstring on
+        `user_id`, populated once a portal login is provisioned).
+        """
+        result = await self._db.execute(select(Employee).where(Employee.user_id == user_id))
+        return result.scalar_one_or_none()

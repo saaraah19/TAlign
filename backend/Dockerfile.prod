@@ -1,0 +1,36 @@
+# Production image for the API (used by render.yaml). The development image, Dockerfile, is
+# unchanged and is still what docker-compose uses.
+#
+# Differences from the development image, on purpose:
+#   - no auto-reload and no development dependencies (pytest, ruff, mypy, ...)
+#   - listens on $PORT, which the host assigns (Render uses 10000)
+#   - applies database migrations before starting, so a deploy that adds a migration needs no
+#     manual step. Safe with a single instance: `alembic upgrade head` does nothing when the
+#     database is already current.
+#   - trusts the host's proxy headers (FORWARDED_ALLOW_IPS=* is set in render.yaml) so the login
+#     throttle sees real client addresses instead of the proxy's.
+FROM python:3.11-slim
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# libpq is the PostgreSQL client library psycopg2 links against at runtime. All other
+# dependencies ship as prebuilt wheels, so no compiler is needed.
+RUN apt-get update && apt-get install -y --no-install-recommends libpq5 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Dependencies first, so this layer is cached until pyproject.toml changes. Only pyproject.toml
+# is present at this point, so pip installs the dependencies and no project package (the code is
+# found through the working directory).
+COPY pyproject.toml .
+RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir .
+
+COPY . .
+
+# Not a secret: the port the host tells us to listen on (this default is for running it by hand).
+ENV PORT=8000
+EXPOSE 8000
+
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --proxy-headers"]

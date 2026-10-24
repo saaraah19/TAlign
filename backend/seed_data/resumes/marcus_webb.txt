@@ -1,0 +1,24 @@
+MARCUS WEBB
+
+Junior Python Developer
+marcus.webb@candidates-demo.com · Manchester, UK
+
+SUMMARY
+-------
+Python developer with 2 years of experience building internal tools and simple web APIs.
+
+EXPERIENCE
+----------
+Python Developer — Greenfield Retail (2023 – present)
+  - Build internal tools and small REST APIs in Python (Flask).
+  - Write SQL queries against a MySQL database for stock reports.
+IT Support Analyst — Greenfield Retail (2021 – 2023)
+  - First-line support; automated routine tasks with Python scripts.
+
+SKILLS
+------
+Python, Flask, REST APIs, SQL, MySQL, Git, Linux basics
+
+EDUCATION
+---------
+HND Computing, Manchester College, 2021
