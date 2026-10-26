@@ -8,9 +8,11 @@
 #                plan it sleeps after 15 idle minutes and takes up to a minute to wake; the web
 #                app shows a "waking up" screen meanwhile.
 #
-# The database is NOT defined here: it already exists. Paste its INTERNAL connection string when
-# Render asks for DATABASE_URL (the one that starts with postgres:// and has a host like
-# dpg-xxxx-a, with no region suffix). The API and the database must be in the SAME region.
+# The database is NOT defined here. Create it first (docs/09_deployment.md, section 6: a free Neon
+# project is recommended, because Render's own free database is deleted after 30 days) and paste
+# its connection string when Render asks for DATABASE_URL. Use Neon's DIRECT string (connection
+# pooling switched off); the app accepts it exactly as Neon shows it. Do NOT also set
+# DATABASE_URL_SYNC: it is derived from DATABASE_URL.
 #
 # AFTER THE FIRST DEPLOY: Render may give the API a different address than the one below (for
 # example talign-api-x1y2.onrender.com if the name was taken). Put the real address in the
@@ -24,7 +26,7 @@ services:
     name: talign-api
     runtime: docker
     plan: free
-    region: oregon # must match your database's region
+    region: oregon # pick the Neon region closest to this one (AWS US West 2 is Oregon)
     dockerfilePath: ./backend/Dockerfile.prod
     dockerContext: ./backend
     healthCheckPath: /api/v1/health
@@ -41,7 +43,7 @@ services:
       - key: GOOGLE_API_KEY
         sync: false # prompted once; use a key from a free-tier Google project with NO billing attached
       - key: DATABASE_URL
-        sync: false # prompted once; the database's INTERNAL connection string
+        sync: false # prompted once; the database's connection string (Neon: the direct one)
       - key: CORS_ORIGINS
         value: https://talign.onrender.com # the web app's real address (only direct API calls need it)
       - key: COOKIE_SAMESITE

@@ -76,3 +76,16 @@ def test_parts_that_need_no_change_are_left_exactly_as_given() -> None:
     # A socket path in the query, and a percent-encoded password, must not be re-encoded.
     given = "postgres://u:p%40ss@/db?host=/var/run/postgresql&sslmode=require"
     assert to_async_url(given) == "postgresql+asyncpg://u:p%40ss@/db?host=/var/run/postgresql&ssl=require"
+
+
+def test_a_neon_connection_string_works_as_pasted() -> None:
+    # Neon's dashboard string: sslmode plus channel_binding. asyncpg rejects channel_binding.
+    given = "postgresql://neondb_owner:secret@ep-cool-123.us-west-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+    assert to_async_url(given) == (
+        "postgresql+asyncpg://neondb_owner:secret@ep-cool-123.us-west-2.aws.neon.tech/neondb?ssl=require"
+    )
+    # libpq (used by migrations) understands both options, so the sync form is left intact
+    assert to_sync_url(given) == (
+        "postgresql+psycopg2://neondb_owner:secret@ep-cool-123.us-west-2.aws.neon.tech/neondb"
+        "?sslmode=require&channel_binding=require"
+    )

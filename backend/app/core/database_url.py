@@ -20,7 +20,7 @@ from urllib.parse import urlsplit, urlunsplit
 _KNOWN_SCHEMES = ("postgres", "postgresql", "postgresql+asyncpg", "postgresql+psycopg2")
 
 
-def _rewrite(url: str, *, scheme: str, rename: dict[str, str]) -> str:
+def _rewrite(url: str, *, scheme: str, rename: dict[str, str], drop: frozenset[str] = frozenset()) -> str:
     parts = urlsplit(url.strip())
     if parts.scheme not in _KNOWN_SCHEMES:
         return url  # not a PostgreSQL URL we understand: leave it alone and let the driver complain
@@ -29,13 +29,22 @@ def _rewrite(url: str, *, scheme: str, rename: dict[str, str]) -> str:
     pairs = []
     for pair in parts.query.split("&") if parts.query else []:
         key, sep, value = pair.partition("=")
+        if key in drop:
+            continue
         pairs.append(f"{rename.get(key, key)}{sep}{value}")
     return urlunsplit((scheme, parts.netloc, parts.path, "&".join(pairs), parts.fragment))
 
 
 def to_async_url(url: str) -> str:
     """`postgres://u:p@h/db?sslmode=require` -> `postgresql+asyncpg://u:p@h/db?ssl=require`."""
-    return _rewrite(url, scheme="postgresql+asyncpg", rename={"sslmode": "ssl"})
+    # `channel_binding` (added by Neon) is a libpq option; asyncpg does not know it and would
+    # refuse to connect, so it is dropped here. The sync (libpq) form keeps it.
+    return _rewrite(
+        url,
+        scheme="postgresql+asyncpg",
+        rename={"sslmode": "ssl"},
+        drop=frozenset({"channel_binding"}),
+    )
 
 
 def to_sync_url(url: str) -> str:

@@ -148,8 +148,10 @@ Checked against Render's own documentation on the date this was written; **confi
 
 ### Steps
 
-1. **Prepare.** Push the repository to GitHub. Restore `.github/workflows/ci.yml` if your working folder lost it, and wait for the first CI run to go green. Create a Gemini key in a Google project with **no billing attached**, so anyone using the public demo can only exhaust a free quota and never cost you money. Note your Render database's **region**, its **expiry date**, and its **Internal Database URL** (it starts with `postgres://` and has a short host like `dpg-…-a`).
-2. **Create the services.** In the Render dashboard choose *New → Blueprint*, select the repository, and Render reads `render.yaml`. When it asks, paste the internal database URL as `DATABASE_URL` and the key as `GOOGLE_API_KEY`. If your database is not in the Oregon region, change `region:` in `render.yaml` first: the API and the database must share a region to use the private network.
+1. **Prepare.** Push the repository to GitHub, restore `.github/workflows/ci.yml` if your working folder lost it, and wait for the first CI run to go green. Create a Gemini key in a Google project with **no billing attached**, so anyone using the public demo can only exhaust a free quota and never cost you money.
+
+   **Create the database first.** Until now Talign has only run against a database on your own machine; the deployed API needs one reachable from the internet. A free **Neon** project is recommended over Render's own free database, because Neon's has no 30-day expiry, needs no card, supports `pgvector`, and its server only sleeps after 5 idle minutes (waking takes a fraction of a second, and the app already checks each pooled connection before using it). In Neon: create a project (name it `talign`; choose the region closest to the API, AWS US West 2 / Oregon if offered), then open *Connect* and choose the **direct** connection string, i.e. turn *Connection pooling* **off** (the app has its own pool, and a pooler in the middle can interfere with it). Copy the string; it looks like `postgresql://user:password@ep-….neon.tech/neondb?sslmode=require&channel_binding=require`. The app accepts it exactly as shown (it translates the SSL option for each driver and drops the one the async driver does not understand). Keep it private: it contains the password.
+2. **Create the services.** In the Render dashboard choose *New → Blueprint*, select the repository, and Render reads `render.yaml`. When it asks, paste the database connection string as `DATABASE_URL` and the key as `GOOGLE_API_KEY`. Do **not** add `DATABASE_URL_SYNC` (it is derived), and do not import your local `.env` file into Render: it contains development values such as a `localhost` database address.
 3. **Fix the two addresses.** After the first deploy, Render shows the real address of each service. If the API's is not `talign-api.onrender.com`, put the real one in the `/api/*` rule in `render.yaml`; and if the site's is not `talign.onrender.com`, put it in `CORS_ORIGINS`. Commit and push; both services redeploy.
 4. **Wake it and look.** Open `https://<your-site>/api/v1/health` (the first request after idle takes up to a minute). You should see `{"status":"ok","database":"ok"}`. Then open the site itself.
 5. **Load the demo world** (optional but recommended for a portfolio link) from your own computer, which calls the live API:
@@ -203,7 +205,7 @@ npm run serve:export     # serves frontend/out on http://localhost:3000 and forw
 
 ### Keeping the demo healthy
 
-The database expires 30 days after it was created. Put the expiry date in your calendar: before it, create a new free database, set the new internal URL as `DATABASE_URL`, let the API redeploy (it migrates on start), and run the seed again. Uploaded files vanish whenever the API restarts; only document re-indexing needs them.
+A Neon free project does not expire, but check its storage limit in the Neon dashboard now and then. (If you use Render's own free database instead, it expires 30 days after creation: before then, create a new one, set its internal URL as `DATABASE_URL`, let the API redeploy, and run the seed again.) Uploaded files vanish whenever the API restarts; only document re-indexing needs them.
 
 ---
 
@@ -213,7 +215,8 @@ The database expires 30 days after it was created. Put the expiry date in your c
 | --- | --- |
 | The browser reports a CORS error | First check the API's logs for a crash: a `500` used to be disguised as a CORS error. With the forwarding in place the browser should not make cross-origin calls at all, so a CORS error usually means the page is calling the API's own address directly: check `NEXT_PUBLIC_API_URL` was `/api/v1` **when the site was built** (it is baked in at build time) |
 | The API will not start and lists problems | `ENVIRONMENT` is `staging` or `production` with the default secret, a short secret, or `DEBUG=true`. Fix the listed settings |
-| The API starts, then every request fails with a database error | `DATABASE_URL` is wrong, or the API and the database are in different regions and the internal address does not resolve. Check the region and that you used the *internal* URL |
+| The API crashes at start trying to reach `localhost:5432` | `DATABASE_URL` was never set to a real database in Render's Environment page (or `DATABASE_URL_SYNC` is still set to a `localhost` value from a local `.env`). Set `DATABASE_URL`, delete `DATABASE_URL_SYNC`, redeploy |
+| The API starts, then every request fails with a database error | `DATABASE_URL` is wrong. For Neon, check you used the *direct* string (pooling off) and that the project is not suspended by quota |
 | Migrations fail on a fresh database | The database user cannot create the `vector` extension, or the database is below PostgreSQL 13 |
 | The site loads but every API call returns `502` for more than two minutes | The API failed to start. Read its logs in the Render dashboard |
 | The waking screen never goes away | The API cannot start (see above), or the forwarding destination in `render.yaml` is not the API's real address |
